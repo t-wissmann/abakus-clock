@@ -8,27 +8,34 @@
 
 // painter
 #include <QPainter>
+#include <QPen>
+#include <QRect>
+#include <QRadialGradient>
+#include <QLinearGradient>
 
 
 AbakusClock::AbakusClock()
     : QWidget()
 {
+    m_bShowSeconds = TRUE;
     m_nHours = 0;
     m_nMins = 0;
+    m_nSecs = 44;
+    m_nFPS = 25;
     initGraphicalMembers();
     m_nAddingMinTimestep = -1;
     // init logical ball positions
-    for(int i = 0; i < 20; ++i){
+    for(int i = 0; i < ABAKUS_BALL_COUNT; ++i){
         m_rgBalls[i].m_nLogicalCol = (int)(i/5);
-        m_rgBalls[i].m_nLogicalRow = i%4;
+        m_rgBalls[i].m_nLogicalRow = i%ABAKUS_COL_COUNT;
     }
     
     recomputeLogicalBallPositions(FALSE);
     computeRealFromLogicalBallPosition();
     // create timer for animation refresh
-    QTimer *timer = new QTimer(this);
-    connect(timer, SIGNAL(timeout()), this, SLOT(moveBallPositions()));
-    timer->start(40);
+    m_tmrRepaint = new QTimer(this);
+    connect(m_tmrRepaint, SIGNAL(timeout()), this, SLOT(moveBallPositions()));
+    m_tmrRepaint->start(m_nFPS);
     
     // set size policy
     setSizePolicy(QSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding));
@@ -37,7 +44,7 @@ AbakusClock::AbakusClock()
     
     // create timer for adding minutes every m_nAddingMinTimestep seconds
     m_tmrAddMinute = new QTimer(this);
-    connect(m_tmrAddMinute, SIGNAL(timeout()), this, SLOT(addMinute()));
+    connect(m_tmrAddMinute, SIGNAL(timeout()), this, SLOT(addSecond()));
 }
 
 AbakusClock::~AbakusClock()
@@ -58,7 +65,10 @@ void AbakusClock::moveBallPositions()
     // here, all balles will get animated
     BallPosition* currentBall = m_rgBalls;
     bool hasToRepaint = FALSE;
-    for(int i = 0; i < (20); i++){
+    // don't animate hidden balls
+    int ballcount = m_bShowSeconds ?
+            ABAKUS_BALL_COUNT : (ABAKUS_BALL_COUNT - 10);
+    for(int i = 0; i < ballcount; i++){
         currentBall = m_rgBalls + i;
         currentBall->updatePosition();
         if(!currentBall->animation().animationFinished()){
@@ -82,61 +92,119 @@ void AbakusClock::paintEvent(QPaintEvent*)
 {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
+    QPen   borderpen(m_cClockAppearance.m_cBorderColor);
+    borderpen.setWidth(m_cClockAppearance.m_nBorderWidth);
+    painter.setPen(borderpen);
+    
+    // y is y of top ball - radius + margin
+    int yTopCol = getYByRowNumber(0) - m_nBallDiameter/2 + m_nMargin;
+    // y is y of top ball - radius + margin
+    int yBottomCol = getYByRowNumber(2) - m_nBallDiameter/2 + m_nMargin;
+    
+    // don't paint hidden balls
+    int ballcount = m_bShowSeconds ?
+            ABAKUS_BALL_COUNT : (ABAKUS_BALL_COUNT - 10);
+    int colCount = m_bShowSeconds ?
+            ABAKUS_COL_COUNT : (ABAKUS_COL_COUNT - 2);
     
     // draw horizontal col axis
-    for(int col = 0; col < 4; ++col){
+    for(int col = 0; col < colCount; ++col){
         // use x coord of top ball of each col
         int x = m_rgBalls[col*5].currentPosition().x();
-        // y is y of top ball - radius + margin
-        int y = getYByRowNumber(0) - m_nBallDiameter/2 + m_nMargin;
-        printAxis(painter, x, y,m_nBallspacing + (int)(m_nBallDiameter-m_nMargin)*2, m_nBallDiameter/10);
+        printAxis(painter, x, yTopCol, m_nBallspacing
+            + (int)(m_nBallDiameter-m_nMargin)*2, m_nBallDiameter/10);
         
         // now the lower col axis
-        // y is y of top ball - radius + margin
-        y = getYByRowNumber(2) - m_nBallDiameter/2 + m_nMargin;
-        printAxis(painter, x, y,m_nBallspacing*4 + (int)(m_nBallDiameter)*5-2*m_nMargin,
+        printAxis(painter, x, yBottomCol,m_nBallspacing*4
+                + (int)(m_nBallDiameter)*5-2*m_nMargin,
                   m_nBallDiameter/10);
     }
     
-    for(int i = 0; i < 20; i++){
-        paintBall(painter, m_rgBalls[i].currentPosition().x(),
-            m_rgBalls[i].currentPosition().y(), (int)m_nBallDiameter);
-        // draw label if wanted
-        /*
-        painter.drawText(m_rgBalls[i].currentPosition().x(),
-                         m_rgBalls[i].currentPosition().y(),
-                        QString::number(i));
-        */
+    for(int i = 0; i < ballcount; i++){
+        paintBall(painter,
+                m_rgBalls[i].currentPosition().x(),
+                m_rgBalls[i].currentPosition().y(),
+                (int)m_nBallDiameter);
     }
     
     // paint middle bar separator
+    // reset pen
+    painter.setPen(borderpen);
     int y = getYByRowNumber(1) + m_nBallDiameter/2+m_nMiddlebarheight/2;
-    int x = m_rgBalls[5].currentPosition().x() + m_nBallDiameter/2 + m_nBallspacing;
-    printAxis(painter, x, y, m_nBallDiameter/10,
-              m_nBallspacing*3 + (int)(m_nBallDiameter)*4-2*m_nMargin
-              );
+    int separatorwidth = m_nBallspacing*3 + (int)(m_nBallDiameter)*4-2*m_nMargin;
+    if(m_bShowSeconds)
+    {
+        separatorwidth += m_nBallspacing*2 + m_nBallDiameter*2;
+    }
+    int x = m_rgBalls[0].currentPosition().x()-m_nBallDiameter/2  + separatorwidth/2;
+    printAxis(painter, x, y, m_nBallDiameter/10, separatorwidth);
 }
 
 
 
 void AbakusClock::paintBall(QPainter& painter, int centerX, int centerY, int height)
 {
-    QRadialGradient gradient(centerX - height/5, centerY - height/5, height/2);
-    QColor color1 = palette().highlight().color().lighter(120);
-    QColor color2 = palette().highlight().color();
-    color1.setAlpha(200);
-    color2.setAlpha(244);
-    gradient.setColorAt(0, color1);
-    gradient.setColorAt(1, color2);
-    QBrush brush(gradient);
-    painter.setBrush(brush);
-    painter.drawEllipse(centerX-height/2, centerY-height/2, height, height);
+    int left = centerX-height/2;
+    int top = centerY-height/2;
+    int glazeMargin = m_cClockAppearance.m_nBorderWidth/2;
+    // init brushes
+    QPen   borderpen(m_cClockAppearance.m_cBorderColor);
+    borderpen.setWidth(m_cClockAppearance.m_nBorderWidth);
+    painter.setPen(borderpen);
+    switch(m_cClockAppearance.m_eStyle){
+        case ClockAppearance::RadialGradient: {
+            // init gradient and brush
+            QRadialGradient gradient(centerX - height/5, centerY - height/5, height/2);
+            gradient.setColorAt(0, m_cClockAppearance.m_cBallInnerColor);
+            gradient.setColorAt(1, m_cClockAppearance.m_cBallOuterColor);
+            painter.setBrush(QBrush(gradient));
+            // now paint
+            painter.drawEllipse(left, top, height, height);
+            break;
+        }
+        case ClockAppearance::Tango: {
+            // set margin to bigger margin
+            glazeMargin = m_cClockAppearance.m_nBorderWidth + 1;
+            // init brush for outer color
+            painter.setBrush(QBrush(m_cClockAppearance.m_cBallOuterColor));
+            painter.drawEllipse(left, top, height, height);
+            // init gradient for inner color
+            QLinearGradient gradient(left, top, left+height, top+height );
+            gradient.setColorAt(0, m_cClockAppearance.m_cBallInnerColor);
+            gradient.setColorAt(1, m_cClockAppearance.m_cBallInnerColor.darker(150));
+            painter.setPen(Qt::NoPen); // disable pen
+            painter.setBrush(QBrush(gradient));
+            int diameter = height - glazeMargin*2;
+            painter.drawEllipse(centerX-diameter/2, centerY-diameter/2,
+                                diameter, diameter);
+            
+            break;
+        }
+    }
+    
+    
+    // paint glaze
+    if(m_cClockAppearance.m_cGlazeTop.alpha()
+       || m_cClockAppearance.m_cGlazeMiddle.alpha())
+        // if glaze.alpha() != 0 -> if glaze is visible
+    {
+        QLinearGradient gradient(centerX, top, centerX, centerY);
+        gradient.setColorAt(0, m_cClockAppearance.m_cGlazeTop);
+        gradient.setColorAt(1, m_cClockAppearance.m_cGlazeMiddle);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(gradient);
+        QRect rect(left+glazeMargin,
+                   top+glazeMargin,
+                   height-glazeMargin*2, height-glazeMargin*2);
+        
+        painter.drawChord(rect, 0*16, 180 *16);
+    }
 }
 
 void AbakusClock::printAxis(QPainter& painter, int x, int y,
                              int height, int width)
 {
-    painter.setBrush(palette().highlight());
+    painter.setBrush(QBrush(m_cClockAppearance.m_cAxisFillColor));
     painter.drawRoundRect(x-width/2, y, width, height, 44, 44);
 }
 
@@ -158,6 +226,12 @@ void AbakusClock::recomputeLogicalBallPositions(bool animated)
     setLogicalBallPositionsInCol(currentCol+=1, 4, (m_nMins/10)%5, animated);
     setLogicalBallPositionsInCol(currentCol+=4, 1, (int)((m_nMins%10)/5), animated);
     setLogicalBallPositionsInCol(currentCol+=1, 4, (m_nMins)%5, animated);
+    
+    // secs
+    setLogicalBallPositionsInCol(currentCol+=4, 1, (int)((m_nSecs/10)/5), animated);
+    setLogicalBallPositionsInCol(currentCol+=1, 4, (m_nSecs/10)%5, animated);
+    setLogicalBallPositionsInCol(currentCol+=4, 1, (int)((m_nSecs%10)/5), animated);
+    setLogicalBallPositionsInCol(currentCol+=1, 4, (m_nSecs)%5, animated);
     
 }
 
@@ -190,6 +264,7 @@ void AbakusClock::setLogicalBallPositionsInCol(BallPosition* col, int colheight,
         for(int i = 0; i < colheight; ++i){
             int newValue;
             // 2: offset for upper cols
+            // +1 wether ball is below or above space
             if(i < value)
             {
                 newValue = 2 + i;
@@ -200,8 +275,8 @@ void AbakusClock::setLogicalBallPositionsInCol(BallPosition* col, int colheight,
             if(animated && (col[i].m_nLogicalRow != newValue))
             {
                 col[i].moveTo(QPoint(
-                              col[i].currentPosition().x(),
-                        getYByRowNumber(newValue)));
+                        col[i].currentPosition().x(), // x value
+                        getYByRowNumber(newValue)));  // y value
             }
             col[i].m_nLogicalRow = newValue;
         }
@@ -211,17 +286,18 @@ void AbakusClock::setLogicalBallPositionsInCol(BallPosition* col, int colheight,
 
 void AbakusClock::computeRealFromLogicalBallPosition()
 {
-    float ballDiameterWidth = (width() - 2* m_nMargin - m_nBallspacing * 3) / 4;
+    // if seconds are shown, we have 6 cols,,,, else only 4 cols
+    float ballDiameterWidth = (width() - 2* m_nMargin - m_nBallspacing * 3
+            - (m_bShowSeconds ? (m_nBallspacing * 2) : 0)) / (m_bShowSeconds ? 6:4);
     float ballDiameterHeight = (height() - m_nMiddlebarheight - 2* m_nMargin - m_nBallspacing * 6) / 7;
     m_nBallDiameter = (ballDiameterHeight < ballDiameterWidth) ?
             ballDiameterHeight : ballDiameterWidth;
-    int offsetX = (int)(m_nBallDiameter/2) +(int)
-            (width() - m_nBallspacing*3 - m_nBallDiameter*4 ) / 2;
+    int offsetX = computeOffsetX(m_nBallDiameter);
     int offsetY = (int)(m_nBallDiameter/2) + (int)
             (height() - m_nBallspacing*6 - m_nMiddlebarheight - m_nBallDiameter*7 ) / 2;
     
     int x, y;
-    for(int i = 0; i < 20; i++){
+    for(int i = 0; i < ABAKUS_BALL_COUNT; i++){
         
         x = offsetX + (int)(m_rgBalls[i].m_nLogicalCol * (m_nBallspacing + m_nBallDiameter));
         y = offsetY + (int)(m_rgBalls[i].m_nLogicalRow * (m_nBallspacing + m_nBallDiameter));
@@ -234,17 +310,63 @@ void AbakusClock::computeRealFromLogicalBallPosition()
     }
 }
 
+
+int AbakusClock::computeBallDiameterFromWidth()
+{
+    // TODO
+    return -1;
+}
+
+int AbakusClock::computeOffsetX(int balldiameter)
+{
+    int offsetX = width() / 2;
+    if(m_bShowSeconds)
+    {
+        offsetX -= (m_nBallspacing*5 + balldiameter*6 ) / 2;
+    }
+    else
+    {
+        offsetX -= (m_nBallspacing*3 + balldiameter*4 ) / 2;
+    }
+    offsetX += (int)(balldiameter/2);
+    return offsetX;
+}
+
+
 void AbakusClock::addMinute()
 {
     m_nMins++;
     m_nMins %= 60;
     if(m_nMins == 0)
     {
-        m_nMins = 1;
         m_nHours++;
-        m_nHours %= 60;
-        if(m_nHours == 0){
-            m_nHours = 1;
+        m_nHours %= 24;
+        if(m_nHours < 0){
+            m_nHours = 0;
+        }
+    }
+    bool animated = TRUE;
+    recomputeLogicalBallPositions(animated);
+    if(!animated){
+        computeRealFromLogicalBallPosition();
+    }
+    update();
+}
+void AbakusClock::addSecond()
+{
+    m_nSecs++;
+    m_nSecs %= 60;
+    if(m_nSecs == 0)
+    {
+        m_nMins++;
+        m_nMins %= 60;
+        if(m_nMins == 0)
+        {
+            m_nHours++;
+            m_nHours %= 24;
+            if(m_nHours < 0){
+                m_nHours = 0;
+            }
         }
     }
     bool animated = TRUE;
@@ -257,7 +379,9 @@ void AbakusClock::addMinute()
 
 int  AbakusClock::getYByRowNumber(int row)
 {
-    float ballDiameterWidth = (width() - 2* m_nMargin - m_nBallspacing * 3) / 4;
+    // if seconds are shown, we have 6 cols,,,, else only 4 cols
+    float ballDiameterWidth = (width() - 2* m_nMargin - m_nBallspacing * 3
+            - (m_bShowSeconds ? (m_nBallspacing * 2) : 0)) / (m_bShowSeconds ? 6:4);
     float ballDiameterHeight = (height() - m_nMiddlebarheight - 2* m_nMargin - m_nBallspacing * 6) / 7;
     m_nBallDiameter = (ballDiameterHeight < ballDiameterWidth) ?
             ballDiameterHeight : ballDiameterWidth;
@@ -273,10 +397,11 @@ int  AbakusClock::getYByRowNumber(int row)
 
 
 
-void AbakusClock::setTime(char hours, char mins)
+void AbakusClock::setTime(char hours, char mins, char secs)
 {
     m_nHours = hours;
     m_nMins = mins;
+    m_nSecs = secs;
     // set time without animation
     recomputeLogicalBallPositions(FALSE);
     computeRealFromLogicalBallPosition();
@@ -285,7 +410,7 @@ void AbakusClock::setTime(char hours, char mins)
 
 void AbakusClock::setAnimationTimestep(int ms)
 {
-    for(int i = 0; i < 20; ++i){
+    for(int i = 0; i < ABAKUS_BALL_COUNT; ++i){
         m_rgBalls[i].setAnimationTimestep(ms);
     }
 }
@@ -297,7 +422,7 @@ int AbakusClock::animationTimestep() const
 
 
 
-void AbakusClock::setAddingMinTimestep(int s)
+void AbakusClock::setAddingTimestep(int s)
 {
     if(m_nAddingMinTimestep == s)
     {
@@ -313,8 +438,57 @@ void AbakusClock::setAddingMinTimestep(int s)
     }
 }
 
-int  AbakusClock::addingMinTimestep() const
+int  AbakusClock::addingTimestep() const
 {
     return m_nAddingMinTimestep;
+}
+
+
+void AbakusClock::setSecondsVisible(bool visible)
+{
+    if(m_bShowSeconds == visible)
+    {
+        return;
+    }
+    m_bShowSeconds = visible;
+    // recompute positions
+    computeRealFromLogicalBallPosition();
+    update();
+}
+
+bool AbakusClock::areSecondsVisible() const
+{
+    return m_bShowSeconds;
+}
+
+
+void AbakusClock::setClockAppearance(const ClockAppearance& appear)
+{
+    m_cClockAppearance = appear;
+}
+
+ClockAppearance AbakusClock::clockAppearance() const
+{
+    return m_cClockAppearance;
+}
+
+int AbakusClock::FPS() const
+{
+    return m_nFPS;
+}
+
+void AbakusClock::setFPS(int fps)
+{
+    
+    if(fps == m_nFPS){
+        // do nothing, if nothing would change
+        return;
+    }
+    m_nFPS = fps;
+    m_tmrRepaint->stop();
+    if(m_nFPS > 0)
+    { // only (re-)start on valid m_nFPS
+        m_tmrRepaint->start(1000 / m_nFPS);
+    }
 }
 

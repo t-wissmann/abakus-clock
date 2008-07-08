@@ -11,9 +11,13 @@ class AbakusConfigureDia;
 //widgets
 class AbakusClock;
 class QPushButton;
+class QLabel;
+class QTextEdit;
 // layouts
 class QHBoxLayout;
 class QVBoxLayout;
+// other
+class QKeyEvent;
 
 class AbakusMainWindow : public QWidget
 {
@@ -27,6 +31,12 @@ public:
 public slots:
     void showConfigureDialog();
     void showAboutDialog();
+    void showHelpDialog();
+    
+    void toggleHeaderEdit(bool visible);
+    void writeHeaderInputToLabel();
+protected:
+    virtual void keyPressEvent(QKeyEvent* event);
     
 private:
     void createGui();
@@ -38,12 +48,23 @@ private:
     // widgets
     AbakusClock* wdgClock;
     QPushButton* btnQuit;
+    QPushButton* btnEditHeader;
     QPushButton* btnAbout;
+    QPushButton* btnHelp;
     QPushButton* btnConfigure;
+    // widgets in header
+    QLabel*      lblHeader;
+    QTextEdit*   txtHeaderInput;
+    QPushButton* btnHeaderConfirm;
     
     // layouts
-    QHBoxLayout* layoutParent;
+    QVBoxLayout* layoutParent;
+    QHBoxLayout* layoutHeader;
+    QHBoxLayout* layoutCenter;
     QVBoxLayout* layoutToolButtons;
+    
+    
+    bool         m_bIsFullscreen;
     
 };
 
