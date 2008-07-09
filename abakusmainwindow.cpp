@@ -29,6 +29,7 @@ AbakusMainWindow::AbakusMainWindow()
     
     createGui();
     connectSlots();
+    initWidgets();
     retranslateUi();
     
     // create dialogs
@@ -60,12 +61,9 @@ void AbakusMainWindow::createGui()
         txtHeaderInput->minimumSize().width(), 27*2);
     txtHeaderInput->setBaseSize(txtHeaderInput->minimumSize());
     txtHeaderInput->resize(txtHeaderInput->minimumSize());
-    txtHeaderInput->setVisible(FALSE);
     lblHeader = new QLabel;
     lblHeader->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
-    lblHeader->setVisible(FALSE);
     btnHeaderConfirm = new QPushButton;
-    btnHeaderConfirm->setVisible(FALSE);
     
     // tool buttons
     btnQuit = new QPushButton("Quit");
@@ -115,6 +113,13 @@ void AbakusMainWindow::connectSlots()
     connect(btnHeaderConfirm, SIGNAL(clicked()), this, SLOT(writeHeaderInputToLabel()));
 }
 
+
+void AbakusMainWindow::initWidgets()
+{
+    txtHeaderInput->setVisible(FALSE);
+    lblHeader->setVisible(FALSE);
+    btnHeaderConfirm->setVisible(FALSE);
+}
 
 void AbakusMainWindow::retranslateUi()
 {

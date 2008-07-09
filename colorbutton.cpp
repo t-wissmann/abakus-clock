@@ -89,8 +89,10 @@ void ColorButton::paintEvent(QPaintEvent* event)
     painter.drawRect(rect);
     
     // draw current m_cColor
+    QColor colWithAlpha = m_cColor;
+    colWithAlpha.setAlpha(255); // set alpha to 100%, so that button is shown solid
     rect.adjust(2, 2, -1, -1);
-    bgBrush.setColor(m_cColor);
+    bgBrush.setColor(colWithAlpha);
     
     painter.setPen(Qt::NoPen);
     if(isDown())

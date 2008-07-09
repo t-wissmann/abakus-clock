@@ -4,6 +4,7 @@
 #include <QDialog>
 
 class AbakusClock;
+class ClockAppearance;
 // widgets
 class QLabel;
 class QPushButton;
@@ -19,7 +20,8 @@ class QListWidget;
 class QHBoxLayout;
 class QVBoxLayout;
 class QStackedLayout;
-class ClockAppearance;
+class QSplitter;
+
 
 
 class AbakusConfigureDia : public QDialog
@@ -95,6 +97,14 @@ private:
     QLabel*      lblGlazeMiddle;
     QSlider*     slidGlazeMiddleAlpha;
     ColorButton* btnGlazeMiddle;
+    QHBoxLayout* layoutGlazeShadow1;
+    QLabel*      lblGlazeShadow1;
+    QSlider*     slidGlazeShadow1Alpha;
+    ColorButton* btnGlazeShadow1;
+    QHBoxLayout* layoutGlazeShadow2;
+    QLabel*      lblGlazeShadow2;
+    QSlider*     slidGlazeShadow2Alpha;
+    ColorButton* btnGlazeShadow2;
     
     // widgets
     QPushButton* btnApply;
@@ -112,6 +122,7 @@ private:
     QHBoxLayout* layoutFPS;
     QHBoxLayout* layoutAddSecond;
     QHBoxLayout* layoutTime;
+    QSplitter*   splitterMain;
     QHBoxLayout* layoutParent;
     
     // members

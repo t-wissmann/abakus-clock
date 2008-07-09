@@ -163,20 +163,23 @@ void AbakusClock::paintBall(QPainter& painter, int centerX, int centerY, int hei
             break;
         }
         case ClockAppearance::Tango: {
-            // set margin to bigger margin
-            glazeMargin = m_cClockAppearance.m_nBorderWidth + 1;
-            // init brush for outer color
-            painter.setBrush(QBrush(m_cClockAppearance.m_cBallOuterColor));
-            painter.drawEllipse(left, top, height, height);
-            // init gradient for inner color
-            QLinearGradient gradient(left, top, left+height, top+height );
-            gradient.setColorAt(0, m_cClockAppearance.m_cBallInnerColor);
-            gradient.setColorAt(1, m_cClockAppearance.m_cBallInnerColor.darker(150));
-            painter.setPen(Qt::NoPen); // disable pen
-            painter.setBrush(QBrush(gradient));
+            // set margin to bigger margin -> tango like ;D
+            glazeMargin = m_cClockAppearance.m_nBorderWidth+1;
+            
             int diameter = height - glazeMargin*2;
-            painter.drawEllipse(centerX-diameter/2, centerY-diameter/2,
-                                diameter, diameter);
+            QRadialGradient gradient(centerX, centerY, (int)height/2);
+            double skipPosition = 0.8;
+            if(height > 0 && diameter > 0)
+            {
+                skipPosition = ((double)diameter) / ((double)height);
+            }
+            
+            gradient.setColorAt(0, m_cClockAppearance.m_cBallInnerColor);
+            gradient.setColorAt(skipPosition-0.01, m_cClockAppearance.m_cBallInnerColor);
+            gradient.setColorAt(skipPosition+0.01, m_cClockAppearance.m_cBallOuterColor);
+            gradient.setColorAt(1, m_cClockAppearance.m_cBallOuterColor);
+            painter.setBrush(QBrush(gradient));
+            painter.drawEllipse(left, top, height, height);
             
             break;
         }
@@ -198,6 +201,22 @@ void AbakusClock::paintBall(QPainter& painter, int centerX, int centerY, int hei
                    height-glazeMargin*2, height-glazeMargin*2);
         
         painter.drawChord(rect, 0*16, 180 *16);
+    }
+    // paint glaze shadow
+    if(m_cClockAppearance.m_cGlazeShadow1.alpha()
+       || m_cClockAppearance.m_cGlazeShadow2.alpha())
+        // if glaze.alpha() != 0 -> if glaze is visible
+    {
+        QLinearGradient gradient(centerX, centerY, centerX, centerY+height/2);
+        gradient.setColorAt(0, m_cClockAppearance.m_cGlazeShadow1);
+        gradient.setColorAt(1, m_cClockAppearance.m_cGlazeShadow2);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(gradient);
+        QRect rect(left+glazeMargin,
+                   top+glazeMargin,
+                   height-glazeMargin*2, height-glazeMargin*2);
+        
+        painter.drawChord(rect, 180*16, 180 *16);
     }
 }
 

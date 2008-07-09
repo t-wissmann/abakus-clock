@@ -18,6 +18,7 @@
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QStackedLayout>
+#include <QSplitter>
 
 // dialogs
 #include <QColorDialog>
@@ -121,6 +122,16 @@ void AbakusConfigureDia::allocateWidgets()
     slidGlazeMiddleAlpha = new QSlider(Qt::Horizontal);
     slidGlazeMiddleAlpha->setRange(0, 255); // alpha range
     btnGlazeMiddle = new ColorButton;
+    // glaze shadow 1
+    lblGlazeShadow1 = new QLabel;
+    slidGlazeShadow1Alpha = new QSlider(Qt::Horizontal);
+    slidGlazeShadow1Alpha->setRange(0, 255); // alpha range
+    btnGlazeShadow1 = new ColorButton;
+    // glaze shadow 2
+    lblGlazeShadow2 = new QLabel;
+    slidGlazeShadow2Alpha = new QSlider(Qt::Horizontal);
+    slidGlazeShadow2Alpha->setRange(0, 255); // alpha range
+    btnGlazeShadow2 = new ColorButton;
     
     // container 
     grpBehavior = new QGroupBox;
@@ -218,6 +229,17 @@ void AbakusConfigureDia::createLayouts()
     layoutGlazeMiddle->addWidget(lblGlazeMiddle);
     layoutGlazeMiddle->addWidget(slidGlazeMiddleAlpha);
     layoutGlazeMiddle->addWidget(btnGlazeMiddle);
+    // glaze shadow
+    layoutGlazeShadow1 = new QHBoxLayout;
+    layoutGlazeShadow1->setMargin(0);
+    layoutGlazeShadow1->addWidget(lblGlazeShadow1);
+    layoutGlazeShadow1->addWidget(slidGlazeShadow1Alpha);
+    layoutGlazeShadow1->addWidget(btnGlazeShadow1);
+    layoutGlazeShadow2 = new QHBoxLayout;
+    layoutGlazeShadow2->setMargin(0);
+    layoutGlazeShadow2->addWidget(lblGlazeShadow2);
+    layoutGlazeShadow2->addWidget(slidGlazeShadow2Alpha);
+    layoutGlazeShadow2->addWidget(btnGlazeShadow2);
     
     // "tool" buttons // buttons on the bottom - like Apply and ResetDefaults
     layoutColorToolButtons = new QHBoxLayout;
@@ -235,6 +257,8 @@ void AbakusConfigureDia::createLayouts()
     layoutColors->addLayout(layoutAxisFill);
     layoutColors->addLayout(layoutGlaze);
     layoutColors->addLayout(layoutGlazeMiddle);
+    layoutColors->addLayout(layoutGlazeShadow1);
+    layoutColors->addLayout(layoutGlazeShadow2);
     layoutColors->addWidget(chkColorsAutoApply);
     layoutColors->addLayout(layoutColorToolButtons);
     
@@ -245,11 +269,17 @@ void AbakusConfigureDia::createLayouts()
     stackMain->addWidget(grpBehavior);
     stackMain->addWidget(grpColors);
     
+    // main splitter
+    splitterMain = new QSplitter;
+    splitterMain->addWidget(lstStackControl);
+    QWidget* wdgFoo = new QWidget;// layouts can't be added to splitters
+    wdgFoo->setLayout(stackMain); // so we need to cheat: add layout to widget
+    splitterMain->addWidget(wdgFoo); // and then add this widget
+    
     // parent layout
     layoutParent = new QHBoxLayout;
     layoutParent->setMargin(4);
-    layoutParent->addWidget(lstStackControl);
-    layoutParent->addLayout(stackMain);
+    layoutParent->addWidget(splitterMain);
     setLayout(layoutParent);
     // resize to minimum -> lstStackControl gets resized smaller
     resize(22, 22);
@@ -281,6 +311,10 @@ void AbakusConfigureDia::connectSlots()
     connect(slidGlazeAlpha, SIGNAL(valueChanged(int)), this, SLOT(colorWidgetChanged()));
     connect(btnGlazeMiddle, SIGNAL(colorChanged(QColor)), this, SLOT(colorWidgetChanged()));
     connect(slidGlazeMiddleAlpha, SIGNAL(valueChanged(int)), this, SLOT(colorWidgetChanged()));
+    connect(btnGlazeShadow1, SIGNAL(colorChanged(QColor)), this, SLOT(colorWidgetChanged()));
+    connect(slidGlazeShadow1Alpha, SIGNAL(valueChanged(int)), this, SLOT(colorWidgetChanged()));
+    connect(btnGlazeShadow2, SIGNAL(colorChanged(QColor)), this, SLOT(colorWidgetChanged()));
+    connect(slidGlazeShadow2Alpha, SIGNAL(valueChanged(int)), this, SLOT(colorWidgetChanged()));
 }
 
 
@@ -322,6 +356,8 @@ void AbakusConfigureDia::retranslateUi()
     lblAxisFill->setText(tr("Achsenfarbe:"));
     lblGlaze->setText(tr("Glanz der Kugeln oben:"));
     lblGlazeMiddle->setText(tr("Glanz der Kugeln mittig:"));
+    lblGlazeShadow1->setText(tr("Schatten des Glanzes mittig:"));
+    lblGlazeShadow2->setText(tr("Schatten des Glanzes unten:"));
     QListWidgetItem* item;
     item = lstStackControl->item(0);
     if(item) item->setText(tr("Uhrzeit"));
@@ -399,6 +435,10 @@ void AbakusConfigureDia::setAppearanceWidgets(ClockAppearance* appear)
     slidGlazeAlpha->setValue(appear->m_cGlazeTop.alpha());
     btnGlazeMiddle->setColor(appear->m_cGlazeMiddle);
     slidGlazeMiddleAlpha->setValue(appear->m_cGlazeMiddle.alpha());
+    btnGlazeShadow1->setColor(appear->m_cGlazeShadow1);
+    slidGlazeShadow1Alpha->setValue(appear->m_cGlazeShadow1.alpha());
+    btnGlazeShadow2->setColor(appear->m_cGlazeShadow2);
+    slidGlazeShadow2Alpha->setValue(appear->m_cGlazeShadow2.alpha());
     cmbBallStyle->setCurrentIndex(appear->m_eStyle);
 }
 
@@ -442,6 +482,10 @@ void AbakusConfigureDia::applyColorChanges()
         app.m_cGlazeTop.setAlpha(slidGlazeAlpha->value());
         app.m_cGlazeMiddle  = btnGlazeMiddle->color();
         app.m_cGlazeMiddle.setAlpha(slidGlazeMiddleAlpha->value());
+        app.m_cGlazeShadow1  = btnGlazeShadow1->color();
+        app.m_cGlazeShadow1.setAlpha(slidGlazeShadow1Alpha->value());
+        app.m_cGlazeShadow2  = btnGlazeShadow2->color();
+        app.m_cGlazeShadow2.setAlpha(slidGlazeShadow2Alpha->value());
         app.m_eStyle = (ClockAppearance::BallStyle)cmbBallStyle->currentIndex();
     }
     else
@@ -461,15 +505,21 @@ void AbakusConfigureDia::setToSystemColors(ClockAppearance* appear) const
     }
     QPalette pal = palette();
     pal.setCurrentColorGroup(QPalette::Active);
+    appear->m_eStyle        = ClockAppearance::RadialGradient;
     appear->m_cBorderColor = pal.color(QPalette::WindowText);
-    appear->m_nBorderWidth = 1;
+    appear->m_cBorderColor.setAlpha(50);
+    appear->m_nBorderWidth = 2;
     appear->m_cBallOuterColor = pal.highlight().color();
     appear->m_cBallOuterColor.setAlpha(244);
-    appear->m_cBallInnerColor = pal.highlight().color().lighter(120);
+    appear->m_cBallInnerColor = pal.highlight().color().lighter(140);
     appear->m_cBallInnerColor.setAlpha(200);
     appear->m_cAxisFillColor = pal.highlight().color();
-    appear->m_cGlazeTop    = QColor( 255, 255, 255, 40);
+    appear->m_cAxisFillColor.setAlpha(180);
+    appear->m_cGlazeTop    = QColor( 255, 255, 255, 20);
     appear->m_cGlazeMiddle = QColor( 255, 255, 255, 80);
+    appear->m_cGlazeShadow1 = QColor( 255, 255, 255, 20);
+    appear->m_cGlazeShadow2 = pal.highlight().color().darker(190);
+    appear->m_cGlazeShadow2.setAlpha(200);
 }
 
 

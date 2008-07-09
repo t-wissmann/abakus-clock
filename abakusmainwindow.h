@@ -40,6 +40,7 @@ protected:
     
 private:
     void createGui();
+    void initWidgets();
     void connectSlots();
     
     // dialogs

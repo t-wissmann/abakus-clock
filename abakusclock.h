@@ -33,6 +33,8 @@ public:
     QColor m_cAxisFillColor;
     QColor m_cGlazeTop;
     QColor m_cGlazeMiddle;
+    QColor m_cGlazeShadow1;
+    QColor m_cGlazeShadow2;
 };
 
 class AbakusClock : public QWidget{
