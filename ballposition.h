@@ -16,6 +16,7 @@ public:
 
     void setCurrentPosition(QPoint position);
     void moveTo(QPoint to);
+    QPoint targetPosition() const {return m_cAnimation.target();};
     QPoint currentPosition() const;
 
     void updatePosition();

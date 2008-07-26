@@ -35,6 +35,8 @@ public slots:
     
     void toggleHeaderEdit(bool visible);
     void writeHeaderInputToLabel();
+    void toggleFooterEdit(bool visible);
+    void writeFooterInputToLabel();
 protected:
     virtual void keyPressEvent(QKeyEvent* event);
     
@@ -50,6 +52,7 @@ private:
     AbakusClock* wdgClock;
     QPushButton* btnQuit;
     QPushButton* btnEditHeader;
+    QPushButton* btnEditFooter;
     QPushButton* btnAbout;
     QPushButton* btnHelp;
     QPushButton* btnConfigure;
@@ -57,10 +60,14 @@ private:
     QLabel*      lblHeader;
     QTextEdit*   txtHeaderInput;
     QPushButton* btnHeaderConfirm;
+    QLabel*      lblFooter;
+    QTextEdit*   txtFooterInput;
+    QPushButton* btnFooterConfirm;
     
     // layouts
     QVBoxLayout* layoutParent;
     QHBoxLayout* layoutHeader;
+    QHBoxLayout* layoutFooter;
     QHBoxLayout* layoutCenter;
     QVBoxLayout* layoutToolButtons;
     

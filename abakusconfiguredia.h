@@ -34,7 +34,9 @@ public:
     void retranslateUi();
     void setClock(AbakusClock* clock, bool initToDefaults = FALSE);
     void setToSystemColors(ClockAppearance* appear) const;
+    static void setToColorsFromPalette(ClockAppearance* appear, const QPalette& pal);
     void setAppearanceWidgets(ClockAppearance* appear); // loads values from appear to widgets in group box grpColors
+    void setWindowOptions(QWidget* window);
 public slots:
     void jumpToSystemTime();
     void applyChanges();
@@ -42,6 +44,18 @@ public slots:
     void applyColorChanges();
     void resetDefaultColors();
     void colorWidgetChanged();
+    void applyWindowOptions();
+    void generatePaletteFromCustomColor();
+    void writeThemeToDefaultFile();
+    void writeThemeToFile(QString filepath);
+    void loadDefaultFileToTheme();
+    void loadFileToTheme(QString filepath, ClockAppearance* app, bool printErrors = TRUE);
+    void refreshThemeList();
+    void createNewTheme();
+    void saveSelectedTheme();
+    void loadSelectedTheme();
+    void deleteSelectedTheme();
+    void autoLoadThemeIfWanted();
 private:
     void allocateWidgets();
     void createLayouts();
@@ -55,6 +69,11 @@ private:
     QSpinBox*   spinAddSecond;
     QLabel*     lblFPS;
     QSpinBox*   spinFPS;
+    QPushButton* btnApply;
+    QCheckBox*  chkFullyAnimated;
+    QLabel*     lblHmsSeparator;
+    QSpinBox*   spinHmsSeparator;
+    
     // clock - time
     QLabel*     lblTime;
     QTimeEdit*  spinTime;
@@ -67,6 +86,7 @@ private:
     QCheckBox*   chkColorsAutoApply;
     QPushButton* btnResetDefaultColors;
     QCheckBox*   chkCustomColors;
+    QPushButton* btnGeneratePalette;
     QHBoxLayout* layoutBallStyle;
     QLabel*      lblBallStyle;
     QComboBox*   cmbBallStyle;
@@ -105,15 +125,29 @@ private:
     QLabel*      lblGlazeShadow2;
     QSlider*     slidGlazeShadow2Alpha;
     ColorButton* btnGlazeShadow2;
-    
-    // widgets
-    QPushButton* btnApply;
+    // Window options
+    QPushButton* btnApplyWindowOptions;
+    QVBoxLayout* layoutWindowOptions;
+    QHBoxLayout* layoutBackgroundColor;
+    QLabel*      lblBackgroundColor;
+    ColorButton* btnBackgroundColor;
+    // themes
+    QListWidget* lstThemes;
+    QHBoxLayout* layoutThemes;
+    QVBoxLayout* layoutThemeButtons;
+    QPushButton* btnSaveTheme;
+    QPushButton* btnNewTheme;
+    QPushButton* btnLoadTheme;
+    QPushButton* btnDeleteTheme;
+    QCheckBox*   chkThemeAutoLoad;
     // containers
     QListWidget*    lstStackControl;
     QStackedLayout* stackMain;
     QGroupBox*  grpBehavior;
     QGroupBox*  grpClockTime;
     QGroupBox*  grpColors;
+    QGroupBox*  grpWindowOptions;
+    QGroupBox*  grpThemes;
     // layouts
     QVBoxLayout* layoutBehavior;
     QVBoxLayout* layoutClockTime;
@@ -122,11 +156,16 @@ private:
     QHBoxLayout* layoutFPS;
     QHBoxLayout* layoutAddSecond;
     QHBoxLayout* layoutTime;
+    QHBoxLayout* layoutHmsSeparator;
     QSplitter*   splitterMain;
     QHBoxLayout* layoutParent;
     
     // members
+    QString      m_szThemeExtension;
     AbakusClock* m_pClock;
+    QWidget*     m_pCurrentWindow;
+    QColor       m_cLastBasicColor; // last color, that was selected, when
+                                    // btnGeneratePalette was clicked to regenerate palette
 };
 
 

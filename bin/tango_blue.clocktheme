@@ -1,0 +1,19 @@
+#clock appearance: DONT EDIT OR CHANGE ORDER OF LINES !
+#style: 0 RadialGradient, 1 Tango
+1
+#ball color: inner: alpha, rgb
+255, 3465a4
+#ball color: outer: alpha, rgb
+255, 729fcf
+#border: width, alpha, rgb
+4, 255, 204a87
+#axis fill color: alpha, rgb
+180, 3465a4
+#glaze on top: alpha, rgb
+65, fffffd
+#glaze in the middle: alpha, rgb
+0, eeeeec
+#glaze shadow 1 (middle): alpha, rgb
+0, 3465a4
+#glaze shadow 2 (bottom): alpha, rgb
+81, 000000

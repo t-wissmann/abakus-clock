@@ -168,13 +168,15 @@ void ColorButton::mouseMoveEvent(QMouseEvent* event)
             drag->setMimeData(mimeData);
             drag->setPixmap(colorrect);
             drag->start(Qt::MoveAction);
+            // after drag:
+            //remove focus
+            clearFocus();
         }
     }
     else
     {
         m_cDragStartPosition = QPoint(-33, -33);
     }
-    QPushButton::mouseMoveEvent(event);
 }
 
 

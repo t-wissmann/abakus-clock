@@ -20,7 +20,8 @@
 AbakusMainWindow::AbakusMainWindow()
     : ABAKUS_MW_SUPERCLASS ()
 {
-    
+    bool debugMode = QApplication::arguments().contains("--debug", Qt::CaseInsensitive) ||
+            QApplication::arguments().contains("-debug", Qt::CaseInsensitive);
     // init dialogs
     diaConfigure = NULL;
     
@@ -32,17 +33,19 @@ AbakusMainWindow::AbakusMainWindow()
     initWidgets();
     retranslateUi();
     
+    // load window icon
+    setWindowIcon(QIcon(QApplication::applicationDirPath() + "/clock16.png"));
+    
     // create dialogs
     diaConfigure  = new AbakusConfigureDia(this);
     diaConfigure->setClock(wdgClock, TRUE);
-    
+    wdgClock->setShowFPS(debugMode);
     
     resize(520, 460);
 }
 
-AbakusMainWindow::~AbakusMainWindow(){
-    
-    
+AbakusMainWindow::~AbakusMainWindow()
+{
 }
 
 
@@ -65,6 +68,17 @@ void AbakusMainWindow::createGui()
     lblHeader->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
     btnHeaderConfirm = new QPushButton;
     
+    //same for footer
+    txtFooterInput = new QTextEdit;
+    txtFooterInput->setSizePolicy(QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred));
+    txtFooterInput->setMinimumSize(
+                                   txtFooterInput->minimumSize().width(), 27*2);
+    txtFooterInput->setBaseSize(txtFooterInput->minimumSize());
+    txtFooterInput->resize(txtFooterInput->minimumSize());
+    lblFooter = new QLabel;
+    lblFooter->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
+    btnFooterConfirm = new QPushButton;
+    
     // tool buttons
     btnQuit = new QPushButton("Quit");
     btnAbout = new QPushButton("About");
@@ -72,6 +86,8 @@ void AbakusMainWindow::createGui()
     btnConfigure = new QPushButton("Configure");
     btnEditHeader = new QPushButton("Edit Title");
     btnEditHeader->setCheckable(TRUE);
+    btnEditFooter = new QPushButton("Edit Footer");
+    btnEditFooter->setCheckable(TRUE);
     
     // layouts
     // tool buttons
@@ -80,6 +96,7 @@ void AbakusMainWindow::createGui()
     layoutToolButtons->addStretch();
     layoutToolButtons->addWidget(btnConfigure);
     layoutToolButtons->addWidget(btnEditHeader);
+    layoutToolButtons->addWidget(btnEditFooter);
     layoutToolButtons->addWidget(btnHelp);
     layoutToolButtons->addWidget(btnAbout);
     layoutToolButtons->addWidget(btnQuit);
@@ -89,6 +106,12 @@ void AbakusMainWindow::createGui()
     layoutHeader->addWidget(txtHeaderInput);
     layoutHeader->addWidget(lblHeader);
     layoutHeader->addWidget(btnHeaderConfirm);
+    // layout footer
+    layoutFooter = new QHBoxLayout;
+    layoutFooter->setMargin(0);
+    layoutFooter->addWidget(txtFooterInput);
+    layoutFooter->addWidget(lblFooter);
+    layoutFooter->addWidget(btnFooterConfirm);
     // layout center
     layoutCenter = new QHBoxLayout;
     layoutCenter->setMargin(0);
@@ -99,6 +122,7 @@ void AbakusMainWindow::createGui()
     layoutParent->setMargin(3);
     layoutParent->addLayout(layoutHeader);
     layoutParent->addLayout(layoutCenter);
+    layoutParent->addLayout(layoutFooter);
     
     setLayout(layoutParent);
 }
@@ -111,6 +135,8 @@ void AbakusMainWindow::connectSlots()
     connect(btnHelp, SIGNAL(clicked()), this, SLOT(showHelpDialog()));
     connect(btnEditHeader, SIGNAL(toggled(bool)), this, SLOT(toggleHeaderEdit(bool)));
     connect(btnHeaderConfirm, SIGNAL(clicked()), this, SLOT(writeHeaderInputToLabel()));
+    connect(btnEditFooter, SIGNAL(toggled(bool)), this, SLOT(toggleFooterEdit(bool)));
+    connect(btnFooterConfirm, SIGNAL(clicked()), this, SLOT(writeFooterInputToLabel()));
 }
 
 
@@ -119,6 +145,10 @@ void AbakusMainWindow::initWidgets()
     txtHeaderInput->setVisible(FALSE);
     lblHeader->setVisible(FALSE);
     btnHeaderConfirm->setVisible(FALSE);
+    
+    txtFooterInput->setVisible(FALSE);
+    lblFooter->setVisible(FALSE);
+    btnFooterConfirm->setVisible(FALSE);
 }
 
 void AbakusMainWindow::retranslateUi()
@@ -129,7 +159,10 @@ void AbakusMainWindow::retranslateUi()
     btnAbout->setText(tr("Info"));
     btnQuit->setText(tr("Beenden"));
     btnEditHeader->setText(tr("Kopfzeile"));
+     // 0x00DF = unicode for &szlig; -> ß
+    btnEditFooter->setText(tr("Fu&szlig;zeile").replace("&szlig;", QChar(0x00DF)));
     btnHeaderConfirm->setText(tr("OK"));
+    btnFooterConfirm->setText(tr("OK"));
 }
 
 
@@ -170,6 +203,7 @@ void AbakusMainWindow::keyPressEvent(QKeyEvent* event)
             btnAbout->setVisible(visible);
             btnHelp->setVisible(visible);
             btnEditHeader->setVisible(visible);
+            btnEditFooter->setVisible(visible);
             
             break;
         }
@@ -191,6 +225,11 @@ void AbakusMainWindow::keyPressEvent(QKeyEvent* event)
             btnEditHeader->setChecked(!btnEditHeader->isChecked());
             break;
         }
+        case Qt::Key_R:{
+            // toggle button -> toggle footer edit field
+            btnEditFooter->setChecked(!btnEditFooter->isChecked());
+            break;
+        }
         case Qt::Key_C:{
             showConfigureDialog();
             break;
@@ -204,6 +243,7 @@ void AbakusMainWindow::showHelpDialog()
     msg += "F - Toggle Fullscreen\n";
     msg += "H - Toggle Toolbuttons\n";
     msg += "E - Edit Header\n";
+    msg += "R - Edit Footer\n";
     msg += "C - Configurate\n";
     msg += "Q - Quit\n";
     QMessageBox::information(this, "Abakus Clock - animated", msg);
@@ -233,6 +273,31 @@ void AbakusMainWindow::toggleHeaderEdit(bool visible)
 void AbakusMainWindow::writeHeaderInputToLabel()
 {
     btnEditHeader->setChecked(FALSE);
+}
+
+void AbakusMainWindow::toggleFooterEdit(bool visible)
+{
+    if(visible){
+        // if edit was shown, then write
+        // label text to textedit txtFooterInput
+        txtFooterInput->setPlainText(lblFooter->text());
+    }else
+    {
+        // if edit was hidden, and label was shown,
+        // then write text to label
+        lblFooter->setText(txtFooterInput->toPlainText());
+    }
+    // toggle visibility of objects
+    btnFooterConfirm->setVisible(visible);
+    txtFooterInput->setVisible(visible);
+    lblFooter->setVisible((!visible) && (!lblFooter->text().isEmpty()));
+    // focus this, to provide keyboard shortcuts
+    this->setFocus();
+}
+
+void AbakusMainWindow::writeFooterInputToLabel()
+{
+    btnEditFooter->setChecked(FALSE);
 }
 
 

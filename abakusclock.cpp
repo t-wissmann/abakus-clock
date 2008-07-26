@@ -1,6 +1,11 @@
 
 #include "abakusclock.h"
 
+// stdlib
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
 // system
 #include <QTimer>
 #include <QString>
@@ -9,6 +14,8 @@
 // painter
 #include <QPainter>
 #include <QPen>
+#include <QPicture>
+#include <QImage>
 #include <QRect>
 #include <QRadialGradient>
 #include <QLinearGradient>
@@ -17,11 +24,15 @@
 AbakusClock::AbakusClock()
     : QWidget()
 {
+    m_nCounter = 0;
     m_bShowSeconds = TRUE;
     m_nHours = 0;
     m_nMins = 0;
     m_nSecs = 44;
     m_nFPS = 25;
+    m_nHmsSeparator = 0;
+    m_bFullyAnimated = FALSE;
+    m_bShowFPS = FALSE; // don't show current fps in the top left corner per default
     initGraphicalMembers();
     m_nAddingMinTimestep = -1;
     // init logical ball positions
@@ -35,7 +46,7 @@ AbakusClock::AbakusClock()
     // create timer for animation refresh
     m_tmrRepaint = new QTimer(this);
     connect(m_tmrRepaint, SIGNAL(timeout()), this, SLOT(moveBallPositions()));
-    m_tmrRepaint->start(m_nFPS);
+    m_tmrRepaint->start(1000/m_nFPS);
     
     // set size policy
     setSizePolicy(QSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding));
@@ -86,20 +97,23 @@ void AbakusClock::resizeEvent(QResizeEvent* e)
 {
     QWidget::resizeEvent(e);
     computeRealFromLogicalBallPosition();
+    repaintAllGuiTemplates();
 }
+
+#define __PrintPaintTimer if(0 && !(m_nCounter % 5)) qDebug("Time needed for paint: %d ms in line %d", m_cPaintTime.elapsed(), __LINE__);
 
 void AbakusClock::paintEvent(QPaintEvent*)
 {
-    QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing);
+    // paint
+    QPixmap image(width(), height());
+    QPainter imagePainter(&image);
+    imagePainter.initFrom(this);
+    imagePainter.setRenderHint(QPainter::Antialiasing, TRUE);
+    imagePainter.eraseRect(rect());
+    
     QPen   borderpen(m_cClockAppearance.m_cBorderColor);
     borderpen.setWidth(m_cClockAppearance.m_nBorderWidth);
-    painter.setPen(borderpen);
-    
-    // y is y of top ball - radius + margin
-    int yTopCol = getYByRowNumber(0) - m_nBallDiameter/2 + m_nMargin;
-    // y is y of top ball - radius + margin
-    int yBottomCol = getYByRowNumber(2) - m_nBallDiameter/2 + m_nMargin;
+    imagePainter.setPen(borderpen);
     
     // don't paint hidden balls
     int ballcount = m_bShowSeconds ?
@@ -107,43 +121,161 @@ void AbakusClock::paintEvent(QPaintEvent*)
     int colCount = m_bShowSeconds ?
             ABAKUS_COL_COUNT : (ABAKUS_COL_COUNT - 2);
     
-    // draw horizontal col axis
-    for(int col = 0; col < colCount; ++col){
-        // use x coord of top ball of each col
-        int x = m_rgBalls[col*5].currentPosition().x();
-        printAxis(painter, x, yTopCol, m_nBallspacing
-            + (int)(m_nBallDiameter-m_nMargin)*2, m_nBallDiameter/10);
-        
-        // now the lower col axis
-        printAxis(painter, x, yBottomCol,m_nBallspacing*4
-                + (int)(m_nBallDiameter)*5-2*m_nMargin,
-                  m_nBallDiameter/10);
+    
+    // draw vertical col axis
+    {
+        int axisPicWidth = m_cVAxisTemplate.width();
+        int x;
+        // set brush to axis background
+        for(int col = 0; col < colCount; ++col){
+            // use x coord of top ball of each col
+            x = m_rgBalls[col*5].currentPosition().x() - axisPicWidth/2;
+            // print axis from axis template pixmap
+            imagePainter.drawPixmap(x, 0, m_cVAxisTemplate);
+        }
     }
     
-    for(int i = 0; i < ballcount; i++){
-        paintBall(painter,
-                m_rgBalls[i].currentPosition().x(),
-                m_rgBalls[i].currentPosition().y(),
-                (int)m_nBallDiameter);
+    // print all balls
+    {
+        int picwidth = m_cBallPic.width();
+        QRectF source(0, 0, picwidth, picwidth);
+        QRectF target(0, 0, picwidth, picwidth);
+        int offset = picwidth/2;
+        for(int i = 0; i < ballcount; i++){
+            // now draw this picture for each ball
+            target.moveTo(
+                    m_rgBalls[i].currentPosition().x()-offset,
+                    m_rgBalls[i].currentPosition().y()-offset);
+            imagePainter.drawPixmap(target, m_cBallPic, source);
+        }
     }
     
     // paint middle bar separator
-    // reset pen
-    painter.setPen(borderpen);
+    // reset pen and brush
+    imagePainter.setPen(borderpen);
+    imagePainter.setBrush(QBrush(m_cClockAppearance.m_cAxisFillColor));
     int y = getYByRowNumber(1) + m_nBallDiameter/2+m_nMiddlebarheight/2;
-    int separatorwidth = m_nBallspacing*3 + (int)(m_nBallDiameter)*4-2*m_nMargin;
+    int separatorwidth = m_nBallspacing*3 + (int)(m_nBallDiameter)*4-2*m_nMargin + m_nHmsSeparator;
     if(m_bShowSeconds)
     {
-        separatorwidth += m_nBallspacing*2 + m_nBallDiameter*2;
+        separatorwidth += m_nBallspacing*2 + m_nBallDiameter*2 + m_nHmsSeparator;
     }
     int x = m_rgBalls[0].currentPosition().x()-m_nBallDiameter/2  + separatorwidth/2;
-    printAxis(painter, x, y, m_nBallDiameter/10, separatorwidth);
+    printAxis(imagePainter, x, y, m_nBallDiameter/10, separatorwidth);
+    
+    // draw FPS if wanted
+    if(m_bShowFPS)
+    {
+        QColor textColor = m_cClockAppearance.m_cBorderColor;
+        int currentFps = 999;
+        int elapsedTime = m_cPaintTime.elapsed();
+        if(elapsedTime != 0)
+        {
+            currentFps = 1000 / elapsedTime;
+        }
+        textColor.setAlpha(255);
+        
+        QString text;
+        text.sprintf("%4d FPS", currentFps);
+        // set to fixed font
+        QFont font("mono");
+        imagePainter.setFont(font);
+        imagePainter.setPen(QPen(textColor));
+        imagePainter.drawText(3, 11, text);
+    }
+    // now all elements have been painted to image
+    imagePainter.end();
+    
+    // paint image to widget
+    {
+        QPainter widgetPainter(this);
+        QRectF rect(0, 0, width(), height());
+        widgetPainter.drawPixmap(rect, image, rect);
+    }
+    
+    // print debug output
+    /// currently disabled
+    /*
+    m_nCounter = (m_nCounter+1) % 5; // reset counter
+    if(!(m_nCounter % 5))
+    {// only print every fivth item
+        qDebug("Last repaint: %d ms ago in line %d", m_cPaintTime.elapsed(), __LINE__);
+    }
+    // restart timer 
+    */
+    m_cPaintTime.start();
 }
 
+
+void AbakusClock::repaintAllGuiTemplates()
+{
+    repaintBallTemplate();
+    repaintVAxisTemplate();
+}
+
+void AbakusClock::repaintBallTemplate()
+{
+    // reallocate new memory for pixmap
+    int picwidth = m_nBallDiameter+m_cClockAppearance.m_nBorderWidth*2 +2; // 2 px more for antialiasing space^^ ;D
+    m_cBallPic = QPixmap(picwidth,picwidth);
+    // clear picture
+    m_cBallPic.fill(QColor(0, 0, 0, 0));
+    // init painter
+    QPainter ballpainter;
+    ballpainter.begin(&m_cBallPic);
+    ballpainter.setRenderHint(QPainter::Antialiasing);
+    // draw general ball image
+    paintBall(ballpainter, picwidth/2, picwidth/2,(int)m_nBallDiameter);
+    // done..
+    ballpainter.end();
+}
+
+void AbakusClock::repaintVAxisTemplate()
+{
+    // yTopCol is y of top ball - radius + margin
+    int yTopCol = getYByRowNumber(0) - m_nBallDiameter/2 + m_nMargin;
+    // yBottomCol is y of top ball - radius + margin
+    int yBottomCol = getYByRowNumber(2) - m_nBallDiameter/2 + m_nMargin;
+    int additionalHeightMargin = m_nBallDiameter/10;
+    // init margins,,, coordinates etc..
+    int upperRowHeight = m_nBallspacing
+            + (int)(m_nBallDiameter-m_nMargin)*2;
+    int lowerRowHeight = m_nBallspacing*4
+            + (int)(m_nBallDiameter)*5-2*m_nMargin;
+    upperRowHeight -= additionalHeightMargin*2;
+    lowerRowHeight -= additionalHeightMargin*2;
+    int axisWidth = m_nBallDiameter/10;
+    int picWidth = axisWidth + m_cClockAppearance.m_nBorderWidth*2;
+    int x = picWidth/2;
+    
+    // reallocate new momery for pixmap
+    m_cVAxisTemplate = QPixmap(picWidth, height());
+    // clear picture
+    m_cVAxisTemplate.fill(QColor(0, 0, 0, 0));
+    // init painter
+    QPainter axisPainter;
+    // set brush to axis background
+    axisPainter.begin(&m_cVAxisTemplate);
+    axisPainter.setRenderHint(QPainter::Antialiasing, TRUE);
+    QPen   borderpen(m_cClockAppearance.m_cBorderColor);
+    borderpen.setWidth(m_cClockAppearance.m_nBorderWidth);
+    
+    axisPainter.setPen(borderpen);
+    axisPainter.setBrush(QBrush(m_cClockAppearance.m_cAxisFillColor));
+    
+    // paint both axis: lower and upper
+    // at first upper
+    printAxis(axisPainter, x, yTopCol+additionalHeightMargin, upperRowHeight, axisWidth);
+    // now the lower col axis
+    printAxis(axisPainter, x, yBottomCol+additionalHeightMargin, lowerRowHeight, axisWidth);
+    // done..
+    axisPainter.end();
+}
 
 
 void AbakusClock::paintBall(QPainter& painter, int centerX, int centerY, int height)
 {
+    
     int left = centerX-height/2;
     int top = centerY-height/2;
     int glazeMargin = m_cClockAppearance.m_nBorderWidth/2;
@@ -185,7 +317,6 @@ void AbakusClock::paintBall(QPainter& painter, int centerX, int centerY, int hei
         }
     }
     
-    
     // paint glaze
     if(m_cClockAppearance.m_cGlazeTop.alpha()
        || m_cClockAppearance.m_cGlazeMiddle.alpha())
@@ -223,8 +354,8 @@ void AbakusClock::paintBall(QPainter& painter, int centerX, int centerY, int hei
 void AbakusClock::printAxis(QPainter& painter, int x, int y,
                              int height, int width)
 {
-    painter.setBrush(QBrush(m_cClockAppearance.m_cAxisFillColor));
     painter.drawRoundRect(x-width/2, y, width, height, 44, 44);
+    //painter.drawRect(x-width/2, y, width, height);
 }
 
 
@@ -274,7 +405,7 @@ void AbakusClock::setLogicalBallPositionsInCol(BallPosition* col, int colheight,
             if(animated)
             {
                 col[0].moveTo(QPoint(
-                    col[0].currentPosition().x(),
+                    col[0].targetPosition().x(),
                     getYByRowNumber(newValue)));
             }
         }
@@ -294,8 +425,9 @@ void AbakusClock::setLogicalBallPositionsInCol(BallPosition* col, int colheight,
             if(animated && (col[i].m_nLogicalRow != newValue))
             {
                 col[i].moveTo(QPoint(
-                        col[i].currentPosition().x(), // x value
-                        getYByRowNumber(newValue)));  // y value
+                    col[i].targetPosition().x(), // dont change target of x value
+                    getYByRowNumber(newValue)));  // y value
+                
             }
             col[i].m_nLogicalRow = newValue;
         }
@@ -306,8 +438,8 @@ void AbakusClock::setLogicalBallPositionsInCol(BallPosition* col, int colheight,
 void AbakusClock::computeRealFromLogicalBallPosition()
 {
     // if seconds are shown, we have 6 cols,,,, else only 4 cols
-    float ballDiameterWidth = (width() - 2* m_nMargin - m_nBallspacing * 3
-            - (m_bShowSeconds ? (m_nBallspacing * 2) : 0)) / (m_bShowSeconds ? 6:4);
+    float ballDiameterWidth = (width() - 2* m_nMargin - m_nBallspacing * 3 - m_nHmsSeparator
+            - (m_bShowSeconds ? (m_nBallspacing * 2+ m_nHmsSeparator) : 0)) / (m_bShowSeconds ? 6:4);
     float ballDiameterHeight = (height() - m_nMiddlebarheight - 2* m_nMargin - m_nBallspacing * 6) / 7;
     m_nBallDiameter = (ballDiameterHeight < ballDiameterWidth) ?
             ballDiameterHeight : ballDiameterWidth;
@@ -317,7 +449,18 @@ void AbakusClock::computeRealFromLogicalBallPosition()
     
     int x, y;
     for(int i = 0; i < ABAKUS_BALL_COUNT; i++){
-        
+        if(i == 10)
+        {
+            // after all hour balls
+            // add spacing between hours and mins
+            offsetX += m_nHmsSeparator;
+        }
+        if(i == 20)
+        {
+            // after all hours and min balls
+            // add spacing between mins and secs
+            offsetX += m_nHmsSeparator;
+        }
         x = offsetX + (int)(m_rgBalls[i].m_nLogicalCol * (m_nBallspacing + m_nBallDiameter));
         y = offsetY + (int)(m_rgBalls[i].m_nLogicalRow * (m_nBallspacing + m_nBallDiameter));
         if(m_rgBalls[i].m_nLogicalRow >= 2){
@@ -325,7 +468,14 @@ void AbakusClock::computeRealFromLogicalBallPosition()
             y += m_nMiddlebarheight;
         }
         
-        m_rgBalls[i].setCurrentPosition(QPoint(x, y));
+        if(m_bFullyAnimated)
+        {
+            m_rgBalls[i].moveTo(QPoint(x, y));
+        }
+        else
+        {
+            m_rgBalls[i].setCurrentPosition(QPoint(x, y));
+        }
     }
 }
 
@@ -338,9 +488,10 @@ int AbakusClock::computeBallDiameterFromWidth()
 
 int AbakusClock::computeOffsetX(int balldiameter)
 {
-    int offsetX = width() / 2;
+    int offsetX = width() / 2 - m_nHmsSeparator/2;
     if(m_bShowSeconds)
     {
+        offsetX -= m_nHmsSeparator/2;
         offsetX -= (m_nBallspacing*5 + balldiameter*6 ) / 2;
     }
     else
@@ -399,8 +550,8 @@ void AbakusClock::addSecond()
 int  AbakusClock::getYByRowNumber(int row)
 {
     // if seconds are shown, we have 6 cols,,,, else only 4 cols
-    float ballDiameterWidth = (width() - 2* m_nMargin - m_nBallspacing * 3
-            - (m_bShowSeconds ? (m_nBallspacing * 2) : 0)) / (m_bShowSeconds ? 6:4);
+    float ballDiameterWidth = (width() - 2* m_nMargin - m_nBallspacing * 3 - m_nHmsSeparator
+            - (m_bShowSeconds ? (m_nBallspacing * 2 + m_nHmsSeparator) : 0)) / (m_bShowSeconds ? 6:4);
     float ballDiameterHeight = (height() - m_nMiddlebarheight - 2* m_nMargin - m_nBallspacing * 6) / 7;
     m_nBallDiameter = (ballDiameterHeight < ballDiameterWidth) ?
             ballDiameterHeight : ballDiameterWidth;
@@ -484,6 +635,8 @@ bool AbakusClock::areSecondsVisible() const
 void AbakusClock::setClockAppearance(const ClockAppearance& appear)
 {
     m_cClockAppearance = appear;
+    repaintAllGuiTemplates();
+    update();
 }
 
 ClockAppearance AbakusClock::clockAppearance() const
@@ -507,7 +660,150 @@ void AbakusClock::setFPS(int fps)
     m_tmrRepaint->stop();
     if(m_nFPS > 0)
     { // only (re-)start on valid m_nFPS
-        m_tmrRepaint->start(1000 / m_nFPS);
+        int interval = 1000 / m_nFPS;
+        m_tmrRepaint->start(interval);
     }
 }
+
+
+void AbakusClock::setShowFPS(bool on)
+{
+    m_bShowFPS = on;
+}
+
+
+void AbakusClock::setFullyAnimated(bool on)
+{
+    m_bFullyAnimated = on;
+}
+
+bool AbakusClock::fullyAnimated() const
+{
+    return m_bFullyAnimated;
+}
+
+
+int AbakusClock::hmsSeparator() const
+{
+    return m_nHmsSeparator;
+}
+void AbakusClock::setHmsSeparator(int value)
+{
+    if(m_nHmsSeparator == value)
+    {
+        // if nothing would be changed
+        return;
+    }
+    m_nHmsSeparator = value;
+    computeRealFromLogicalBallPosition();
+    repaintAllGuiTemplates();
+}
+
+
+void ClockAppearance::writeTo(FILE* buf)
+{
+    fprintf(buf, "#clock appearance: DONT EDIT OR CHANGE ORDER OF LINES !\n");
+    fprintf(buf, "#style: 0 RadialGradient, 1 Tango\n");
+    fprintf(buf, "%d\n", (int)m_eStyle);
+    fprintf(buf, "#ball color: inner: alpha, rgb\n");
+    fprintf(buf, "%d, %s\n",
+            m_cBallInnerColor.alpha(),
+            m_cBallInnerColor.name().remove("#").toAscii().data());
+    fprintf(buf, "#ball color: outer: alpha, rgb\n");
+    fprintf(buf, "%d, %s\n",
+            m_cBallOuterColor.alpha(),
+            m_cBallOuterColor.name().remove("#").toAscii().data());
+    fprintf(buf, "#border: width, alpha, rgb\n");
+    fprintf(buf, "%d, %d, %s\n", m_nBorderWidth, m_cBorderColor.alpha(), m_cBorderColor.name().remove("#").toAscii().data());
+    fprintf(buf, "#axis fill color: alpha, rgb\n");
+    fprintf(buf, "%d, %s\n", m_cAxisFillColor.alpha(), m_cAxisFillColor.name().remove("#").toAscii().data());
+    fprintf(buf, "#glaze on top: alpha, rgb\n");
+    fprintf(buf, "%d, %s\n", m_cGlazeTop.alpha(), m_cGlazeTop.name().remove("#").toAscii().data());
+    fprintf(buf, "#glaze in the middle: alpha, rgb\n");
+    fprintf(buf, "%d, %s\n", m_cGlazeMiddle.alpha(), m_cGlazeMiddle.name().remove("#").toAscii().data());
+    fprintf(buf, "#glaze shadow 1 (middle): alpha, rgb\n");
+    fprintf(buf, "%d, %s\n", m_cGlazeShadow1.alpha(), m_cGlazeShadow1.name().remove("#").toAscii().data());
+    fprintf(buf, "#glaze shadow 2 (bottom): alpha, rgb\n");
+    fprintf(buf, "%d, %s\n", m_cGlazeShadow2.alpha(), m_cGlazeShadow2.name().remove("#").toAscii().data());
+    
+}
+
+#define GET_NEXT_LINE(file,line) { \
+    char*  readElements; \
+    while(1) \
+    { \
+        readElements = fgets(line, 80, file); \
+        if(readElements <= 0) \
+        { \
+            return; \
+        } \
+        /* get first char != ' ' */ \
+        int pos = -1; \
+        while(line[++pos] == ' '); \
+        if(line[pos] != '#') \
+        { \
+            break; \
+        } \
+    }\
+    /* remove \n at end of line */ \
+    if(line[strlen(line)-1] == '\n') \
+    { \
+        line[strlen(line)-1] = '\0'; \
+    }\
+}
+
+void ClockAppearance::initFrom(FILE* pFile)
+{
+    char szLine[80];
+    char rgb[80];
+    int  alpha;
+    
+    // stye
+    GET_NEXT_LINE(pFile, szLine);
+    sscanf(szLine, "%d", (int*)&m_eStyle);
+    // inner ball color
+    GET_NEXT_LINE(pFile, szLine);
+    sscanf(szLine, "%d, %s", &alpha, rgb);
+    m_cBallInnerColor.setNamedColor(QString('#') + QString(rgb));
+    m_cBallInnerColor.setAlpha(alpha);
+    // outer ball color
+    GET_NEXT_LINE(pFile, szLine);
+    sscanf(szLine, "%d, %s", &alpha, rgb);
+    m_cBallOuterColor.setNamedColor(QString('#') + QString(rgb));
+    m_cBallOuterColor.setAlpha(alpha);
+    
+    // border color
+    GET_NEXT_LINE(pFile, szLine);
+    sscanf(szLine, "%d, %d, %s\n",&m_nBorderWidth, &alpha, rgb);
+    m_cBorderColor.setNamedColor(QString("#") + rgb);
+    m_cBorderColor.setAlpha(alpha);
+    // axis fill color
+    GET_NEXT_LINE(pFile, szLine);
+    sscanf(szLine, "%d, %s", &alpha, rgb);
+    m_cAxisFillColor.setNamedColor(QString("#") + rgb);
+    m_cAxisFillColor.setAlpha(alpha);
+    // glaze top
+    GET_NEXT_LINE(pFile, szLine);
+    sscanf(szLine, "%d, %s", &alpha, rgb);
+    m_cGlazeTop.setNamedColor(QString("#") + rgb);
+    m_cGlazeTop.setAlpha(alpha);
+    // glaze middle
+    GET_NEXT_LINE(pFile, szLine);
+    sscanf(szLine, "%d, %s", &alpha, rgb);
+    m_cGlazeMiddle.setNamedColor(QString("#") + rgb);
+    m_cGlazeMiddle.setAlpha(alpha);
+    // glaze shadow 1 (middle)
+    GET_NEXT_LINE(pFile, szLine);
+    sscanf(szLine, "%d, %s", &alpha, rgb);
+    m_cGlazeShadow1.setNamedColor(QString("#") + rgb);
+    m_cGlazeShadow1.setAlpha(alpha);
+    // glaze shadow 2 (bottom)
+    GET_NEXT_LINE(pFile, szLine);
+    sscanf(szLine, "%d, %s", &alpha, rgb);
+    m_cGlazeShadow2.setNamedColor(QString("#") + rgb);
+    m_cGlazeShadow2.setAlpha(alpha);
+    
+    
+}
+
 

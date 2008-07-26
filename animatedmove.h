@@ -15,6 +15,8 @@ public:
     void start();
     void start(QPoint from, QPoint to);
     
+    QPoint target() const { return m_cTo; };
+    
     bool animationFinished() const;
     
     static int defaultValueAt(int from, int to, float position);

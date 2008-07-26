@@ -1,6 +1,12 @@
 #include "abakusconfiguredia.h"
 #include "abakusclock.h"
 
+#include <QApplication>
+#include <QDir>
+#include <QStringList>
+#include <QMessageBox>
+#include <QInputDialog>
+#include <QListWidgetItem>
 // widgets
 #include <QGroupBox>
 #include <QCheckBox>
@@ -28,6 +34,8 @@ AbakusConfigureDia::AbakusConfigureDia(QWidget* parent)
 {
     // init members
     m_pClock = NULL;
+    m_cLastBasicColor = palette().highlight().color();
+    m_szThemeExtension = ".clocktheme";
     // create GUI
     allocateWidgets();
     createLayouts();
@@ -35,6 +43,9 @@ AbakusConfigureDia::AbakusConfigureDia(QWidget* parent)
     retranslateUi();
     // hide/close if app gets quit
     setAttribute(Qt::WA_QuitOnClose, FALSE);
+    setWindowOptions(parent);
+    // reload theme list
+    refreshThemeList();
 }
 
 AbakusConfigureDia::~AbakusConfigureDia()
@@ -65,6 +76,13 @@ void AbakusConfigureDia::allocateWidgets()
     spinFPS->setSingleStep(1);
     spinFPS->setRange(0, 500);
     
+    lblHmsSeparator = new QLabel;
+    spinHmsSeparator = new QSpinBox;
+    spinHmsSeparator->setRange(0, 100);
+    spinHmsSeparator->setSingleStep(1);
+    
+    chkFullyAnimated = new QCheckBox;
+    
     // clock
     btnJumpToTime = new QPushButton;
     lblTime   = new QLabel;
@@ -84,6 +102,8 @@ void AbakusConfigureDia::allocateWidgets()
     btnApplyColors = new QPushButton;
     btnResetDefaultColors = new QPushButton;
     chkColorsAutoApply = new QCheckBox;
+    chkColorsAutoApply->setChecked(TRUE);
+    btnGeneratePalette = new QPushButton;
     // style
     lblBallStyle = new QLabel;
     cmbBallStyle = new QComboBox;
@@ -133,10 +153,31 @@ void AbakusConfigureDia::allocateWidgets()
     slidGlazeShadow2Alpha->setRange(0, 255); // alpha range
     btnGlazeShadow2 = new ColorButton;
     
+    // window options
+    btnApplyWindowOptions = new QPushButton;
+    lblBackgroundColor = new QLabel;
+    btnBackgroundColor = new ColorButton;
+    
+    // themes
+    lstThemes = new QListWidget;
+    btnSaveTheme = new QPushButton;
+    btnNewTheme = new QPushButton;
+    btnLoadTheme = new QPushButton;
+    btnDeleteTheme = new QPushButton;
+    chkThemeAutoLoad = new QCheckBox;
+    chkThemeAutoLoad->setChecked(TRUE);
+    
     // container 
     grpBehavior = new QGroupBox;
+    grpBehavior->setFlat(TRUE);
     grpClockTime = new QGroupBox;
+    grpClockTime->setFlat(TRUE);
     grpColors = new QGroupBox;
+    grpColors->setFlat(TRUE);
+    grpWindowOptions = new QGroupBox;
+    grpWindowOptions->setFlat(TRUE);
+    grpThemes = new QGroupBox;
+    grpThemes->setFlat(TRUE);
     lstStackControl = new QListWidget;
     lstStackControl->setSizePolicy(QSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding));
     lstStackControl->setMinimumSize(120, 100);
@@ -144,6 +185,8 @@ void AbakusConfigureDia::allocateWidgets()
     lstStackControl->addItem("Clock");
     lstStackControl->addItem("Behavior");
     lstStackControl->addItem("Look'n'Feel");
+    lstStackControl->addItem("Window options");
+    lstStackControl->addItem("Themes");
 }
 
 void AbakusConfigureDia::createLayouts()
@@ -163,11 +206,18 @@ void AbakusConfigureDia::createLayouts()
     layoutFPS->setMargin(0);
     layoutFPS->addWidget(lblFPS);
     layoutFPS->addWidget(spinFPS);
+    // HMS Separator
+    layoutHmsSeparator = new QHBoxLayout;
+    layoutHmsSeparator->setMargin(0);
+    layoutHmsSeparator->addWidget(lblHmsSeparator);
+    layoutHmsSeparator->addWidget(spinHmsSeparator);
     
     layoutBehavior = new QVBoxLayout;
     layoutBehavior->addLayout(layoutAnimationTimestep);
     layoutBehavior->addLayout(layoutAddSecond);
     layoutBehavior->addLayout(layoutFPS);
+    layoutBehavior->addLayout(layoutHmsSeparator);
+    layoutBehavior->addWidget(chkFullyAnimated);
     layoutBehavior->addWidget(btnApply);
     
     grpBehavior->setLayout(layoutBehavior);
@@ -249,6 +299,7 @@ void AbakusConfigureDia::createLayouts()
     
     layoutColors = new QVBoxLayout;
     layoutColors->addWidget(chkCustomColors);
+    layoutColors->addWidget(btnGeneratePalette);
     layoutColors->addLayout(layoutBallStyle);
     layoutColors->addLayout(layoutColorBall);
     layoutColors->addLayout(layoutBallAlpha);
@@ -264,10 +315,40 @@ void AbakusConfigureDia::createLayouts()
     
     grpColors->setLayout(layoutColors);
     
+    // WINDOW OPTIONS
+    layoutBackgroundColor = new QHBoxLayout;
+    layoutBackgroundColor->setMargin(0);
+    layoutBackgroundColor->addWidget(lblBackgroundColor);
+    layoutBackgroundColor->addWidget(btnBackgroundColor);
+    
+    layoutWindowOptions = new QVBoxLayout;
+    layoutWindowOptions->addLayout(layoutBackgroundColor);
+    layoutWindowOptions->addWidget(btnApplyWindowOptions);
+    grpWindowOptions->setLayout(layoutWindowOptions);
+    
+    // themes
+    layoutThemeButtons = new QVBoxLayout;
+    layoutThemeButtons->setMargin(0);
+    layoutThemeButtons->addStretch();
+    layoutThemeButtons->addWidget(btnNewTheme);
+    layoutThemeButtons->addWidget(btnLoadTheme);
+    layoutThemeButtons->addWidget(btnSaveTheme);
+    layoutThemeButtons->addWidget(btnDeleteTheme);
+    layoutThemeButtons->addWidget(chkThemeAutoLoad);
+    layoutThemeButtons->addStretch();
+    
+    layoutThemes = new QHBoxLayout;
+    layoutThemes->addWidget(lstThemes);
+    layoutThemes->addLayout(layoutThemeButtons);
+    grpThemes->setLayout(layoutThemes);
+    
     stackMain = new QStackedLayout;
     stackMain->addWidget(grpClockTime);
     stackMain->addWidget(grpBehavior);
     stackMain->addWidget(grpColors);
+    stackMain->addWidget(grpWindowOptions);
+    stackMain->addWidget(grpThemes);
+    
     
     // main splitter
     splitterMain = new QSplitter;
@@ -287,6 +368,9 @@ void AbakusConfigureDia::createLayouts()
 
 void AbakusConfigureDia::connectSlots()
 {
+    // write current theme to file
+    connect(qApp, SIGNAL(aboutToQuit()), this, SLOT(writeThemeToDefaultFile()));
+    // for gui
     connect(btnJumpToTime, SIGNAL(clicked()), this, SLOT(jumpToTime()));
     connect(btnApply, SIGNAL(clicked()), this, SLOT(applyChanges()));
     connect(this,    SIGNAL(accepted()), this, SLOT(applyChanges()));
@@ -294,6 +378,8 @@ void AbakusConfigureDia::connectSlots()
     connect(btnApplyColors, SIGNAL(clicked()), this, SLOT(applyColorChanges()));
     connect(btnResetDefaultColors, SIGNAL(clicked()), this, SLOT(resetDefaultColors()));
     connect(lstStackControl, SIGNAL(currentRowChanged(int)), stackMain, SLOT(setCurrentIndex(int)));
+    connect(btnApplyWindowOptions, SIGNAL(clicked()), this, SLOT(applyWindowOptions()));
+    connect(btnGeneratePalette, SIGNAL(clicked()), this, SLOT(generatePaletteFromCustomColor()));
     // connections for auto-color changes
     connect(chkColorsAutoApply, SIGNAL(toggled(bool)), this, SLOT(colorWidgetChanged()));
     connect(cmbBallStyle, SIGNAL(currentIndexChanged(int)), this, SLOT(colorWidgetChanged()));
@@ -315,6 +401,13 @@ void AbakusConfigureDia::connectSlots()
     connect(slidGlazeShadow1Alpha, SIGNAL(valueChanged(int)), this, SLOT(colorWidgetChanged()));
     connect(btnGlazeShadow2, SIGNAL(colorChanged(QColor)), this, SLOT(colorWidgetChanged()));
     connect(slidGlazeShadow2Alpha, SIGNAL(valueChanged(int)), this, SLOT(colorWidgetChanged()));
+    // for themes
+    connect(btnNewTheme, SIGNAL(clicked()), this, SLOT(createNewTheme()));
+    connect(btnSaveTheme, SIGNAL(clicked()), this, SLOT(saveSelectedTheme()));
+    connect(btnLoadTheme, SIGNAL(clicked()), this, SLOT(loadSelectedTheme()));
+    connect(btnDeleteTheme, SIGNAL(clicked()), this, SLOT(deleteSelectedTheme()));
+    connect(chkThemeAutoLoad, SIGNAL(toggled(bool)), this, SLOT(autoLoadThemeIfWanted()));
+    connect(lstThemes, SIGNAL(currentRowChanged(int)), this, SLOT(autoLoadThemeIfWanted()));
 }
 
 
@@ -324,6 +417,8 @@ void AbakusConfigureDia::retranslateUi()
     grpBehavior->setTitle(tr("Verhalten"));
     grpClockTime->setTitle(tr("Uhrzeit"));
     grpColors->setTitle(tr("Erscheinungsbild"));
+    grpWindowOptions->setTitle(tr("Fensteroptionen"));
+    grpThemes->setTitle(tr("Themes"));
     // behavior
     lblAnimationTimestep->setText(tr("Animationsdauer:"));
     lblAddSecond->setText(tr("Sekunde addieren:"));
@@ -331,10 +426,14 @@ void AbakusConfigureDia::retranslateUi()
     spinAddSecond->setSuffix(tr(" ms"));
     spinAddSecond->setSpecialValueText(tr("niemals"));
     spinAnimationTimestep->setSuffix(tr(" ms"));
+    chkFullyAnimated->setText(tr("Vollst%auml;ndig animiert").replace("%auml;", QChar(0x00E4))); // = unicode for &auml;
     // fps
     lblFPS->setText(tr("Aktualisierungsrate:"));
     spinFPS->setSuffix(tr(" FPS"));
     spinFPS->setSpecialValueText(tr("ausgeschaltet"));
+    // hms separator
+    lblHmsSeparator->setText(tr("Trennlinie zwischen\nH-M bzw M-S:"));
+    spinHmsSeparator->setSuffix(tr(" Pixel"));
     // time
     lblTime->setText(tr("Zur Uhrzeit"));
     btnJumpToTime->setText(tr("springen"));
@@ -344,6 +443,7 @@ void AbakusConfigureDia::retranslateUi()
     chkCustomColors->setText(tr("Benutzerdefinierte Farben"));
     chkColorsAutoApply->setText(tr("Automatisches Anwenden"));
     btnResetDefaultColors->setText(tr("Voreinstellungen"));
+    btnGeneratePalette->setText(tr("Palette aus Farbe generieren..."));
     btnApplyColors->setText(tr("Anwenden"));
     lblBallStyle->setText(tr("Aussehen:"));
     cmbBallStyle->clear();
@@ -358,13 +458,28 @@ void AbakusConfigureDia::retranslateUi()
     lblGlazeMiddle->setText(tr("Glanz der Kugeln mittig:"));
     lblGlazeShadow1->setText(tr("Schatten des Glanzes mittig:"));
     lblGlazeShadow2->setText(tr("Schatten des Glanzes unten:"));
-    QListWidgetItem* item;
-    item = lstStackControl->item(0);
+    // Window options
+    btnApplyWindowOptions->setText(tr("Anwenden"));
+    lblBackgroundColor->setText(tr("Hintergrundfarbe:"));
+    // themes
+    btnNewTheme->setText(tr("Neu"));
+    btnSaveTheme->setText(tr("Speichern"));
+    btnDeleteTheme->setText(tr("Entfernen"));
+    btnLoadTheme->setText(tr("Laden"));
+    chkThemeAutoLoad->setText(tr("Automatisch\nLaden"));
+    
+    // list on the left
+    QListWidgetItem* item; int i = 0;
+    item = lstStackControl->item(i++);
     if(item) item->setText(tr("Uhrzeit"));
-    item = lstStackControl->item(1);
+    item = lstStackControl->item(i++); // get next item
     if(item) item->setText(tr("Verhalten"));
-    item = lstStackControl->item(2);
+    item = lstStackControl->item(i++); // get next item
     if(item) item->setText(tr("Erscheinungsbild"));
+    item = lstStackControl->item(i++); // get next item
+    if(item) item->setText(tr("Fensteroptionen"));
+    item = lstStackControl->item(i++); // get next item
+    if(item) item->setText(tr("Themes"));
 }
 
 void AbakusConfigureDia::applyChanges()
@@ -379,8 +494,10 @@ void AbakusConfigureDia::applyChanges()
     {
         spinAddSecond->setValue(40);
     }
+    m_pClock->setFullyAnimated(chkFullyAnimated->isChecked());
     m_pClock->setAddingTimestep(spinAddSecond->value());
     m_pClock->setFPS(spinFPS->value());
+    m_pClock->setHmsSeparator(spinHmsSeparator->value());
 }
 
 
@@ -402,7 +519,8 @@ void AbakusConfigureDia::setClock(AbakusClock* clock, bool initToDefaults)
     chkShowSeconds->setChecked(m_pClock->areSecondsVisible());
     connect(chkShowSeconds, SIGNAL(toggled(bool)),
             m_pClock, SLOT(setSecondsVisible(bool)));
-    
+    chkFullyAnimated->setChecked(m_pClock->fullyAnimated());
+    spinHmsSeparator->setValue(m_pClock->hmsSeparator());
     
     if(initToDefaults){
         m_pClock->setTime(QTime::currentTime().hour(),
@@ -418,6 +536,8 @@ void AbakusConfigureDia::setClock(AbakusClock* clock, bool initToDefaults)
     ClockAppearance app = m_pClock->clockAppearance();
     // reset widget values
     setAppearanceWidgets(&app);
+    // load current theme
+    loadDefaultFileToTheme();
 }
 
 void AbakusConfigureDia::setAppearanceWidgets(ClockAppearance* appear)
@@ -493,18 +613,25 @@ void AbakusConfigureDia::applyColorChanges()
         setToSystemColors(&app);
     }
     m_pClock->setClockAppearance(app);
+    m_pClock->repaintAllGuiTemplates();
     m_pClock->update();
 }
 
 
 void AbakusConfigureDia::setToSystemColors(ClockAppearance* appear) const
 {
+    QPalette currentPalette = palette();
+    // set palette to active palette
+    currentPalette.setCurrentColorGroup(QPalette::Active);
+    setToColorsFromPalette(appear, currentPalette);
+}
+
+void AbakusConfigureDia::setToColorsFromPalette(ClockAppearance* appear, const QPalette& pal)
+{
     if(!appear)
     {
         return;
     }
-    QPalette pal = palette();
-    pal.setCurrentColorGroup(QPalette::Active);
     appear->m_eStyle        = ClockAppearance::RadialGradient;
     appear->m_cBorderColor = pal.color(QPalette::WindowText);
     appear->m_cBorderColor.setAlpha(50);
@@ -523,6 +650,38 @@ void AbakusConfigureDia::setToSystemColors(ClockAppearance* appear) const
 }
 
 
+void AbakusConfigureDia::generatePaletteFromCustomColor()
+{
+    QColor basiccolor = QColorDialog::getColor(m_cLastBasicColor, this);
+    if(!basiccolor.isValid())
+    {
+        return;
+    }
+    m_cLastBasicColor = basiccolor; // set just selected color to new m_cLastBasicColor
+    QPalette pal = palette();
+    // generate new palette from basiccolor
+    pal.setColor(QPalette::Highlight, basiccolor);
+    if(basiccolor.value() < 60) // if basiccolor ist very dark
+    {// then set to light border
+        pal.setColor(QPalette::WindowText, QColor(255, 255, 255));
+    }
+    else // else set to dark border
+    {
+        pal.setColor(QPalette::WindowText, QColor(33, 33, 33));
+    }
+    // apply colors to clock appearance
+    ClockAppearance app;
+    setToColorsFromPalette(&app, pal);
+    // backup value, if chkColorsAutoApply is checked
+    bool autoApply = chkColorsAutoApply->isChecked();
+    // uncheck, so that there isn't autoupdate for each value
+    chkColorsAutoApply->setChecked(FALSE);
+    // apply new colors to widgets
+    setAppearanceWidgets(&app);
+    // restore, if chkColorsAutoApply was checked
+    chkColorsAutoApply->setChecked(autoApply);
+    // done ;-)
+}
 
 void AbakusConfigureDia::resetDefaultColors()
 {
@@ -546,4 +705,152 @@ void AbakusConfigureDia::colorWidgetChanged()
 }
 
 
+void AbakusConfigureDia::applyWindowOptions()
+{
+    if(!m_pCurrentWindow){
+        return;
+    }
+    QPalette pal = palette();
+    pal.setColor(QPalette::Window, btnBackgroundColor->color());
+    m_pCurrentWindow->setPalette(pal);
+}
+
+void AbakusConfigureDia::setWindowOptions(QWidget* window)
+{
+    m_pCurrentWindow = window;
+    if(!m_pCurrentWindow){
+        return;
+    }
+    QPalette pal = window->palette();
+    btnBackgroundColor->setColor(pal.window().color());
+}
+
+
+void AbakusConfigureDia::writeThemeToDefaultFile()
+{
+    writeThemeToFile(QApplication::applicationDirPath() + "/currentthemerc");
+}
+
+void AbakusConfigureDia::writeThemeToFile(QString filepath)
+{
+    //qDebug("saving to %s", filepath.toLocal8Bit().data());
+    FILE* pFile = fopen(filepath.toLocal8Bit().data(), "w");
+    if(!pFile)
+    {
+         QMessageBox::critical(this, "Fehler beim speichern einer Datei",
+                               tr("Fehler beim speichern der datei %file").replace("%file", filepath));
+         return;
+    }
+    if(m_pClock)
+    {
+        ClockAppearance app = m_pClock->clockAppearance();
+        app.writeTo(pFile);
+    }
+    fclose(pFile);
+}
+
+
+void AbakusConfigureDia::loadDefaultFileToTheme()
+{
+    if(m_pClock)
+    {
+        ClockAppearance app = m_pClock->clockAppearance();
+        loadFileToTheme(QApplication::applicationDirPath() + "/currentthemerc", &app, FALSE);
+        m_pClock->setClockAppearance(app);
+        setAppearanceWidgets(&app);
+    }
+}
+
+void AbakusConfigureDia::loadFileToTheme(QString filepath, ClockAppearance* app, bool printErrors)
+{
+    //qDebug("saving to %s", filepath.toLocal8Bit().data());
+    FILE* pFile = fopen(filepath.toLocal8Bit().data(), "r");
+    if(!pFile)
+    {
+        if(printErrors)
+        {
+            QMessageBox::critical(this, "Fehler beim laden einer Datei",
+                              tr("Fehler beim laden der datei %file").replace("%file", filepath));
+        }
+        return;
+    }
+    if(app)
+    {
+        app->initFrom(pFile);
+    }
+    fclose(pFile);
+}
+
+
+void AbakusConfigureDia::refreshThemeList()
+{
+    QDir dir(QApplication::applicationDirPath());
+    int extensionlength = m_szThemeExtension.length();
+    QStringList themes = dir.entryList(QStringList() << ("*" + m_szThemeExtension),
+                                       QDir::Readable | QDir::Files, QDir::Name);
+    for(int i = 0; i < themes.size(); ++i)
+    {
+        //remove extensions
+        themes[i] = themes[i].left(themes[i].length() - extensionlength);
+    }
+    lstThemes->clear();
+    lstThemes->addItems(themes);
+}
+
+void AbakusConfigureDia::createNewTheme()
+{
+    QString filename = QInputDialog::getText(this, "Neues Theme erstellen", "Geben sie den Namen des neuen Themes ein:");
+    filename.remove(m_szThemeExtension);
+    if(filename.isEmpty())
+    {
+        // if CANCEL was clicked
+        return;
+    }
+    writeThemeToFile(filename + m_szThemeExtension);
+    refreshThemeList();
+}
+
+void AbakusConfigureDia::saveSelectedTheme()
+{
+    QListWidgetItem* selectedItem = lstThemes->currentItem();
+    if(selectedItem)
+    {
+        // if a theme is selected
+        writeThemeToFile(selectedItem->text() + m_szThemeExtension);
+    }
+}
+
+
+void AbakusConfigureDia::autoLoadThemeIfWanted()
+{
+    if(chkThemeAutoLoad->isChecked())
+    {
+        loadSelectedTheme();
+    }
+}
+
+void AbakusConfigureDia::loadSelectedTheme()
+{
+    QListWidgetItem* selectedItem = lstThemes->currentItem();
+    if(selectedItem && m_pClock)
+    {
+        ClockAppearance app = m_pClock->clockAppearance();
+        // if a theme is selected
+        loadFileToTheme(selectedItem->text() + m_szThemeExtension, &app);
+        m_pClock->setClockAppearance(app);
+        setAppearanceWidgets(&app);
+    }
+}
+
+void AbakusConfigureDia::deleteSelectedTheme()
+{
+    QDir dir(QApplication::applicationDirPath());
+    QListWidgetItem* selectedItem = lstThemes->currentItem();
+    if(selectedItem)
+    {
+        // if a theme is selected
+        dir.remove(selectedItem->text() + m_szThemeExtension);
+    }
+    refreshThemeList();
+}
 
