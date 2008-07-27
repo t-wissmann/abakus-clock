@@ -31,7 +31,7 @@ AbakusClock::AbakusClock()
     m_nSecs = 44;
     m_nFPS = 25;
     m_nHmsSeparator = 0;
-    m_bFullyAnimated = FALSE;
+    m_bFullyAnimated = TRUE;
     m_bShowFPS = FALSE; // don't show current fps in the top left corner per default
     initGraphicalMembers();
     m_nAddingMinTimestep = -1;
@@ -122,6 +122,25 @@ void AbakusClock::paintEvent(QPaintEvent*)
             ABAKUS_COL_COUNT : (ABAKUS_COL_COUNT - 2);
     
     
+    
+    // paint middle bar separator
+    {
+        // reset pen and brush
+        imagePainter.setPen(borderpen);
+        imagePainter.setBrush(QBrush(m_cClockAppearance.m_cAxisFillColor));
+        int y = getYByRowNumber(1) + m_nBallDiameter/2+m_nMiddlebarheight/2;
+        int separatorwidth = m_nBallspacing*3 + (int)(m_nBallDiameter)*4-2*m_nMargin + m_nHmsSeparator;
+        if(m_bShowSeconds)
+        {
+            separatorwidth += m_nBallspacing*2 + m_nBallDiameter*2 + m_nHmsSeparator;
+        }
+        int x = m_rgBalls[0].currentPosition().x()-m_nBallDiameter/2  + separatorwidth/2;
+        printAxis(imagePainter, x, y, m_nBallDiameter/10, separatorwidth);
+    }
+    
+    
+    imagePainter.setPen(Qt::NoPen);
+    imagePainter.setBrush(Qt::NoBrush);
     // draw vertical col axis
     {
         int axisPicWidth = m_cVAxisTemplate.width();
@@ -149,19 +168,6 @@ void AbakusClock::paintEvent(QPaintEvent*)
             imagePainter.drawPixmap(target, m_cBallPic, source);
         }
     }
-    
-    // paint middle bar separator
-    // reset pen and brush
-    imagePainter.setPen(borderpen);
-    imagePainter.setBrush(QBrush(m_cClockAppearance.m_cAxisFillColor));
-    int y = getYByRowNumber(1) + m_nBallDiameter/2+m_nMiddlebarheight/2;
-    int separatorwidth = m_nBallspacing*3 + (int)(m_nBallDiameter)*4-2*m_nMargin + m_nHmsSeparator;
-    if(m_bShowSeconds)
-    {
-        separatorwidth += m_nBallspacing*2 + m_nBallDiameter*2 + m_nHmsSeparator;
-    }
-    int x = m_rgBalls[0].currentPosition().x()-m_nBallDiameter/2  + separatorwidth/2;
-    printAxis(imagePainter, x, y, m_nBallDiameter/10, separatorwidth);
     
     // draw FPS if wanted
     if(m_bShowFPS)
@@ -700,6 +706,49 @@ void AbakusClock::setHmsSeparator(int value)
 }
 
 
+void AbakusClock::swapBalls(int index1, int index2)
+{
+    if(index1 < 0 || index1 > ABAKUS_BALL_COUNT)
+    {
+        return;
+    }
+    if(index2 < 0 || index2 > ABAKUS_BALL_COUNT)
+    {
+        return;
+    }
+    char tmpbuf[sizeof(BallPosition)];
+    int size = sizeof(BallPosition);
+    // copy to tmp buf
+    memcpy(tmpbuf, m_rgBalls+index1, size);
+    // write from index2 to index1
+    memcpy(m_rgBalls+index1, m_rgBalls+index2, size);
+    // restore index1 to mem of index2
+    memcpy(m_rgBalls+index2, tmpbuf, size);
+    // and now swap logial positions
+    int logicalRow = m_rgBalls[index1].m_nLogicalRow;
+    int logicalCol = m_rgBalls[index1].m_nLogicalCol;
+    m_rgBalls[index1].m_nLogicalRow = m_rgBalls[index2].m_nLogicalRow;
+    m_rgBalls[index1].m_nLogicalCol = m_rgBalls[index2].m_nLogicalCol;
+    m_rgBalls[index2].m_nLogicalRow = logicalRow;
+    m_rgBalls[index2].m_nLogicalCol = logicalCol;
+    //qDebug("swapped %d with %d", index1, index2);
+}
+
+#define RAND_INDEX ((int)((double)ABAKUS_BALL_COUNT*rand()/(RAND_MAX+1.0)))
+
+void AbakusClock::randomizeBalls(int ballsToSwap)
+{
+    for(int i = 0; i < ballsToSwap; ++i)
+    {
+        swapBalls(i%ABAKUS_BALL_COUNT, RAND_INDEX);
+    }
+    // now compute (new)real positions
+    computeRealFromLogicalBallPosition();
+    // and update
+    update();
+}
+
+
 void ClockAppearance::writeTo(FILE* buf)
 {
     fprintf(buf, "#clock appearance: DONT EDIT OR CHANGE ORDER OF LINES !\n");
@@ -802,8 +851,7 @@ void ClockAppearance::initFrom(FILE* pFile)
     sscanf(szLine, "%d, %s", &alpha, rgb);
     m_cGlazeShadow2.setNamedColor(QString("#") + rgb);
     m_cGlazeShadow2.setAlpha(alpha);
-    
-    
 }
+
 
 

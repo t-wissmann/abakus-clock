@@ -6,14 +6,14 @@
 #ball color: outer: alpha, rgb
 255, f7f8f0
 #border: width, alpha, rgb
-2, 255, 212121
+1, 255, 212121
 #axis fill color: alpha, rgb
 255, c8dba7
 #glaze on top: alpha, rgb
-128, 808c6b
+145, 212121
 #glaze in the middle: alpha, rgb
-0, ffffff
+32, 212121
 #glaze shadow 1 (middle): alpha, rgb
-0, ffffff
+32, 212121
 #glaze shadow 2 (bottom): alpha, rgb
-0, 808c6b
+107, ffffff

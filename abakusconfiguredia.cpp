@@ -82,7 +82,7 @@ void AbakusConfigureDia::allocateWidgets()
     spinHmsSeparator->setSingleStep(1);
     
     chkFullyAnimated = new QCheckBox;
-    
+    btnRandomizeBalls = new QPushButton;
     // clock
     btnJumpToTime = new QPushButton;
     lblTime   = new QLabel;
@@ -218,6 +218,7 @@ void AbakusConfigureDia::createLayouts()
     layoutBehavior->addLayout(layoutFPS);
     layoutBehavior->addLayout(layoutHmsSeparator);
     layoutBehavior->addWidget(chkFullyAnimated);
+    layoutBehavior->addWidget(btnRandomizeBalls);
     layoutBehavior->addWidget(btnApply);
     
     grpBehavior->setLayout(layoutBehavior);
@@ -380,6 +381,7 @@ void AbakusConfigureDia::connectSlots()
     connect(lstStackControl, SIGNAL(currentRowChanged(int)), stackMain, SLOT(setCurrentIndex(int)));
     connect(btnApplyWindowOptions, SIGNAL(clicked()), this, SLOT(applyWindowOptions()));
     connect(btnGeneratePalette, SIGNAL(clicked()), this, SLOT(generatePaletteFromCustomColor()));
+    connect(btnRandomizeBalls, SIGNAL(clicked()), this, SLOT(randomizeBalls()));
     // connections for auto-color changes
     connect(chkColorsAutoApply, SIGNAL(toggled(bool)), this, SLOT(colorWidgetChanged()));
     connect(cmbBallStyle, SIGNAL(currentIndexChanged(int)), this, SLOT(colorWidgetChanged()));
@@ -434,6 +436,7 @@ void AbakusConfigureDia::retranslateUi()
     // hms separator
     lblHmsSeparator->setText(tr("Trennlinie zwischen\nH-M bzw M-S:"));
     spinHmsSeparator->setSuffix(tr(" Pixel"));
+    btnRandomizeBalls->setText(tr("Randomize"));
     // time
     lblTime->setText(tr("Zur Uhrzeit"));
     btnJumpToTime->setText(tr("springen"));
@@ -836,7 +839,9 @@ void AbakusConfigureDia::loadSelectedTheme()
     {
         ClockAppearance app = m_pClock->clockAppearance();
         // if a theme is selected
-        loadFileToTheme(selectedItem->text() + m_szThemeExtension, &app);
+        loadFileToTheme(QApplication::applicationDirPath()
+                + QDir::separator() + selectedItem->text()
+                + m_szThemeExtension, &app);
         m_pClock->setClockAppearance(app);
         setAppearanceWidgets(&app);
     }
@@ -854,3 +859,10 @@ void AbakusConfigureDia::deleteSelectedTheme()
     refreshThemeList();
 }
 
+void AbakusConfigureDia::randomizeBalls()
+{
+    if(m_pClock)
+    {
+        m_pClock->randomizeBalls(ABAKUS_BALL_COUNT);
+    }
+}

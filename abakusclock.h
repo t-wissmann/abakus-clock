@@ -72,6 +72,7 @@ public:
     void setShowFPS(bool on);
     bool fullyAnimated() const;
     int hmsSeparator() const;
+    void swapBalls(int index1, int index2);
 public slots:
     void moveBallPositions();
     void addMinute();
@@ -80,6 +81,7 @@ public slots:
     void repaintAllGuiTemplates();
     void setFullyAnimated(bool on);
     void setHmsSeparator(int value);
+    void randomizeBalls(int ballsToSwap = ABAKUS_BALL_COUNT);
 protected:
     virtual void resizeEvent(QResizeEvent* e);
     virtual void paintEvent(QPaintEvent* e);

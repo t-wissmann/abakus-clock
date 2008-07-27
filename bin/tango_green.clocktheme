@@ -4,7 +4,7 @@
 #ball color: inner: alpha, rgb
 255, 73d216
 #ball color: outer: alpha, rgb
-255, 8ae234
+255, b1ff63
 #border: width, alpha, rgb
 5, 255, 326203
 #axis fill color: alpha, rgb

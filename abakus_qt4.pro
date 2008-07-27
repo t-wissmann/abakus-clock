@@ -3,7 +3,8 @@
 ######################################################################
 
 TEMPLATE = app
-TARGET = bin/abakus_qt4
+DESTDIR = bin/
+TARGET = 
 DEPENDPATH += .
 INCLUDEPATH += .
 

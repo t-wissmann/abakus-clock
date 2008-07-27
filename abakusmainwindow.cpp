@@ -230,6 +230,10 @@ void AbakusMainWindow::keyPressEvent(QKeyEvent* event)
             btnEditFooter->setChecked(!btnEditFooter->isChecked());
             break;
         }
+        case Qt::Key_Z:{
+            wdgClock->randomizeBalls();
+            break;
+        }
         case Qt::Key_C:{
             showConfigureDialog();
             break;
@@ -245,6 +249,7 @@ void AbakusMainWindow::showHelpDialog()
     msg += "E - Edit Header\n";
     msg += "R - Edit Footer\n";
     msg += "C - Configurate\n";
+    msg += "Z - Randomize\n";
     msg += "Q - Quit\n";
     QMessageBox::information(this, "Abakus Clock - animated", msg);
 }

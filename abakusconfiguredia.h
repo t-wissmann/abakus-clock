@@ -56,6 +56,7 @@ public slots:
     void loadSelectedTheme();
     void deleteSelectedTheme();
     void autoLoadThemeIfWanted();
+    void randomizeBalls();
 private:
     void allocateWidgets();
     void createLayouts();
@@ -73,6 +74,7 @@ private:
     QCheckBox*  chkFullyAnimated;
     QLabel*     lblHmsSeparator;
     QSpinBox*   spinHmsSeparator;
+    QPushButton* btnRandomizeBalls;
     
     // clock - time
     QLabel*     lblTime;
