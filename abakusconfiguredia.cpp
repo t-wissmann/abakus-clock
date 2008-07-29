@@ -165,7 +165,7 @@ void AbakusConfigureDia::allocateWidgets()
     btnLoadTheme = new QPushButton;
     btnDeleteTheme = new QPushButton;
     chkThemeAutoLoad = new QCheckBox;
-    chkThemeAutoLoad->setChecked(TRUE);
+    //chkThemeAutoLoad->setChecked(TRUE);
     
     // container 
     grpBehavior = new QGroupBox;
@@ -795,6 +795,11 @@ void AbakusConfigureDia::refreshThemeList()
     {
         //remove extensions
         themes[i] = themes[i].left(themes[i].length() - extensionlength);
+        if(themes[i].isEmpty())
+        {
+            themes.removeAt(i);
+            i--;
+        }
     }
     lstThemes->clear();
     lstThemes->addItems(themes);
@@ -819,7 +824,36 @@ void AbakusConfigureDia::saveSelectedTheme()
     if(selectedItem)
     {
         // if a theme is selected
-        writeThemeToFile(selectedItem->text() + m_szThemeExtension);
+        QString title = "&Uuml;berschreiben best&auml;tigen";
+        title.replace("&Uuml;", QChar(0x00DC));
+        title.replace("&auml;", QChar(0x00E4));
+        QString msg = "Das Theesme \"%themename\" existiert bereits.\n";
+        msg += "M&ouml;chten Sie es wirklich &uuml;berschreiben oder einen neuen Namen w&auml;hlen?";
+        msg.replace("%themename", selectedItem->text());
+        msg.replace("&ouml;", QChar(0x00F6));
+        msg.replace("&uuml;", QChar(0x00FC));
+        msg.replace("&auml;", QChar(0x00E4));
+        QMessageBox msgBox(this);
+        msgBox.setIcon(QMessageBox::Question);
+        msgBox.setText(msg);
+        msgBox.setWindowTitle(title);
+        QPushButton* btnOverride = msgBox.addButton(
+                tr("&Uuml;berschreiben").replace("&Uuml;", QChar(0x00DC)),
+                   QMessageBox::AcceptRole);
+        QPushButton* btnNewName = msgBox.addButton(
+                "Neuer Name", QMessageBox::DestructiveRole);
+        QPushButton* btnCancel = msgBox.addButton(
+                "Abbrechen", QMessageBox::RejectRole);
+        msgBox.setEscapeButton(btnCancel);
+        msgBox.exec();
+        if(msgBox.clickedButton() == btnOverride)
+        {
+                writeThemeToFile(selectedItem->text() + m_szThemeExtension);
+        }
+        else if(msgBox.clickedButton() == btnNewName)
+        {
+            createNewTheme();
+        }
     }
 }
 
@@ -853,8 +887,17 @@ void AbakusConfigureDia::deleteSelectedTheme()
     QListWidgetItem* selectedItem = lstThemes->currentItem();
     if(selectedItem)
     {
+        QString title = "L&ouml;schen best&auml;tigen";
+        title.replace("&ouml;", QChar(0x00F6));
+        title.replace("&auml;", QChar(0x00E4));
+        QString msg = "M&ouml;chten Sie das Theme \"%themename\" wirklich l&ouml;schen?";
+        msg.replace("&ouml;", QChar(0x00F6));
+        msg.replace("%themename", selectedItem->text());
         // if a theme is selected
-        dir.remove(selectedItem->text() + m_szThemeExtension);
+        if(QMessageBox::Yes == QMessageBox::question(this, title, msg, QMessageBox::Yes|QMessageBox::No))
+        {
+            dir.remove(selectedItem->text() + m_szThemeExtension);
+        }
     }
     refreshThemeList();
 }
