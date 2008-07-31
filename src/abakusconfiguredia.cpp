@@ -1,5 +1,6 @@
 #include "abakusconfiguredia.h"
 #include "abakusclock.h"
+#include "version.h"
 
 #include <QApplication>
 #include <QDir>
@@ -28,6 +29,8 @@
 
 // dialogs
 #include <QColorDialog>
+
+class QListWidgetItem;
 
 AbakusConfigureDia::AbakusConfigureDia(QWidget* parent)
     : QDialog(parent)
@@ -407,6 +410,7 @@ void AbakusConfigureDia::connectSlots()
     connect(btnNewTheme, SIGNAL(clicked()), this, SLOT(createNewTheme()));
     connect(btnSaveTheme, SIGNAL(clicked()), this, SLOT(saveSelectedTheme()));
     connect(btnLoadTheme, SIGNAL(clicked()), this, SLOT(loadSelectedTheme()));
+    connect(lstThemes, SIGNAL(itemDoubleClicked(QListWidgetItem *)), this, SLOT(loadSelectedTheme()));
     connect(btnDeleteTheme, SIGNAL(clicked()), this, SLOT(deleteSelectedTheme()));
     connect(chkThemeAutoLoad, SIGNAL(toggled(bool)), this, SLOT(autoLoadThemeIfWanted()));
     connect(lstThemes, SIGNAL(currentRowChanged(int)), this, SLOT(autoLoadThemeIfWanted()));
@@ -731,12 +735,14 @@ void AbakusConfigureDia::setWindowOptions(QWidget* window)
 
 void AbakusConfigureDia::writeThemeToDefaultFile()
 {
-    writeThemeToFile(QApplication::applicationDirPath() + "/currentthemerc");
+    writeThemeToFile(__ABAKUS_CURRENTTHEMEPATH);
 }
 
 void AbakusConfigureDia::writeThemeToFile(QString filepath)
 {
     //qDebug("saving to %s", filepath.toLocal8Bit().data());
+    // create dir for themes
+    abakus_create_userthemedir();
     FILE* pFile = fopen(filepath.toLocal8Bit().data(), "w");
     if(!pFile)
     {
@@ -757,8 +763,12 @@ void AbakusConfigureDia::loadDefaultFileToTheme()
 {
     if(m_pClock)
     {
+        // create theme dir if needed
+        abakus_create_userthemedir();
+        // refresh theme list, if there are new files in just-created theme dir
+        refreshThemeList();
         ClockAppearance app = m_pClock->clockAppearance();
-        loadFileToTheme(QApplication::applicationDirPath() + "/currentthemerc", &app, FALSE);
+        loadFileToTheme(__ABAKUS_CURRENTTHEMEPATH, &app, FALSE);
         m_pClock->setClockAppearance(app);
         setAppearanceWidgets(&app);
     }
@@ -787,7 +797,7 @@ void AbakusConfigureDia::loadFileToTheme(QString filepath, ClockAppearance* app,
 
 void AbakusConfigureDia::refreshThemeList()
 {
-    QDir dir(QApplication::applicationDirPath());
+    QDir dir(__ABAKUS_USERTHEMEDIR);
     int extensionlength = m_szThemeExtension.length();
     QStringList themes = dir.entryList(QStringList() << ("*" + m_szThemeExtension),
                                        QDir::Readable | QDir::Files, QDir::Name);
@@ -814,7 +824,7 @@ void AbakusConfigureDia::createNewTheme()
         // if CANCEL was clicked
         return;
     }
-    writeThemeToFile(filename + m_szThemeExtension);
+    writeThemeToFile(__ABAKUS_USERTHEMEDIR + QDir::separator() + filename + m_szThemeExtension);
     refreshThemeList();
 }
 
@@ -873,7 +883,7 @@ void AbakusConfigureDia::loadSelectedTheme()
     {
         ClockAppearance app = m_pClock->clockAppearance();
         // if a theme is selected
-        loadFileToTheme(QApplication::applicationDirPath()
+        loadFileToTheme(__ABAKUS_USERTHEMEDIR
                 + QDir::separator() + selectedItem->text()
                 + m_szThemeExtension, &app);
         m_pClock->setClockAppearance(app);
@@ -883,7 +893,7 @@ void AbakusConfigureDia::loadSelectedTheme()
 
 void AbakusConfigureDia::deleteSelectedTheme()
 {
-    QDir dir(QApplication::applicationDirPath());
+    QDir dir(__ABAKUS_USERTHEMEDIR);
     QListWidgetItem* selectedItem = lstThemes->currentItem();
     if(selectedItem)
     {

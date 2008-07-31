@@ -5,6 +5,7 @@
 // dialogs
 #include "abakusconfiguredia.h"
 #include <QMessageBox>
+#include <QInputDialog>
 // widgets
 #include "abakusclock.h"
 #include <QPushButton>
@@ -84,6 +85,7 @@ void AbakusMainWindow::createGui()
     btnAbout = new QPushButton("About");
     btnHelp = new QPushButton("help");
     btnConfigure = new QPushButton("Configure");
+    btnEditWindowTitle = new QPushButton;
     btnEditHeader = new QPushButton("Edit Title");
     btnEditHeader->setCheckable(TRUE);
     btnEditFooter = new QPushButton("Edit Footer");
@@ -95,6 +97,7 @@ void AbakusMainWindow::createGui()
     layoutToolButtons->setMargin(3);
     layoutToolButtons->addStretch();
     layoutToolButtons->addWidget(btnConfigure);
+    layoutToolButtons->addWidget(btnEditWindowTitle);
     layoutToolButtons->addWidget(btnEditHeader);
     layoutToolButtons->addWidget(btnEditFooter);
     layoutToolButtons->addWidget(btnHelp);
@@ -133,6 +136,7 @@ void AbakusMainWindow::connectSlots()
     connect(btnConfigure, SIGNAL(clicked()), this, SLOT(showConfigureDialog()));
     connect(btnAbout, SIGNAL(clicked()), this, SLOT(showAboutDialog()));
     connect(btnHelp, SIGNAL(clicked()), this, SLOT(showHelpDialog()));
+    connect(btnEditWindowTitle, SIGNAL(clicked()), this, SLOT(editWindowTitle()));
     connect(btnEditHeader, SIGNAL(toggled(bool)), this, SLOT(toggleHeaderEdit(bool)));
     connect(btnHeaderConfirm, SIGNAL(clicked()), this, SLOT(writeHeaderInputToLabel()));
     connect(btnEditFooter, SIGNAL(toggled(bool)), this, SLOT(toggleFooterEdit(bool)));
@@ -163,6 +167,7 @@ void AbakusMainWindow::retranslateUi()
     btnEditFooter->setText(tr("Fu&szlig;zeile").replace("&szlig;", QChar(0x00DF)));
     btnHeaderConfirm->setText(tr("OK"));
     btnFooterConfirm->setText(tr("OK"));
+    btnEditWindowTitle->setText(tr("Fenstertitel"));
 }
 
 
@@ -204,6 +209,7 @@ void AbakusMainWindow::keyPressEvent(QKeyEvent* event)
             btnHelp->setVisible(visible);
             btnEditHeader->setVisible(visible);
             btnEditFooter->setVisible(visible);
+            btnEditWindowTitle->setVisible(visible);
             
             break;
         }
@@ -218,6 +224,10 @@ void AbakusMainWindow::keyPressEvent(QKeyEvent* event)
             }else{
                 showNormal();
             }
+            break;
+        }
+        case Qt::Key_W:{
+            editWindowTitle();
             break;
         }
         case Qt::Key_E:{
@@ -246,6 +256,7 @@ void AbakusMainWindow::showHelpDialog()
     QString msg = "Shortcuts:\n";
     msg += "F - Toggle Fullscreen\n";
     msg += "H - Toggle Toolbuttons\n";
+    msg += "W - Edit Window Title\n";
     msg += "E - Edit Header\n";
     msg += "R - Edit Footer\n";
     msg += "C - Configurate\n";
@@ -305,4 +316,15 @@ void AbakusMainWindow::writeFooterInputToLabel()
     btnEditFooter->setChecked(FALSE);
 }
 
+void AbakusMainWindow::editWindowTitle()
+{
+    bool ok = FALSE;
+    QString title = QInputDialog::getText(this, "Fenstertitel bearbeiten",
+            "Geben sie einen neuen Fenstertitel ein:", QLineEdit::Normal,
+                                          windowTitle(), &ok);
+    if(ok)
+    {
+        setWindowTitle(title);
+    }
+}
 

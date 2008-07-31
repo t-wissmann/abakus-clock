@@ -2,18 +2,18 @@
 #style: 0 RadialGradient, 1 Tango
 0
 #ball color: inner: alpha, rgb
-165, 5eff91
+224, 88ff67
 #ball color: outer: alpha, rgb
-255, 4f6a95
+244, 5acc3a
 #border: width, alpha, rgb
-4, 69, 212121
+2, 50, 212121
 #axis fill color: alpha, rgb
-180, 4f6a95
+180, 5acc3a
 #glaze on top: alpha, rgb
-20, ffffff
+255, ffffff
 #glaze in the middle: alpha, rgb
 80, ffffff
 #glaze shadow 1 (middle): alpha, rgb
 20, ffffff
 #glaze shadow 2 (bottom): alpha, rgb
-200, 29384e
+200, 2f6b1e

@@ -37,6 +37,7 @@ public slots:
     void writeHeaderInputToLabel();
     void toggleFooterEdit(bool visible);
     void writeFooterInputToLabel();
+    void editWindowTitle();
 protected:
     virtual void keyPressEvent(QKeyEvent* event);
     
@@ -51,6 +52,7 @@ private:
     // widgets
     AbakusClock* wdgClock;
     QPushButton* btnQuit;
+    QPushButton* btnEditWindowTitle;
     QPushButton* btnEditHeader;
     QPushButton* btnEditFooter;
     QPushButton* btnAbout;

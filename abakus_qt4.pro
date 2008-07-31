@@ -9,16 +9,17 @@ DEPENDPATH += .
 INCLUDEPATH += .
 
 # Input
-HEADERS += abakusclock.h \
-           abakusconfiguredia.h \
-           abakusmainwindow.h \
-           animatedmove.h \
-           ballposition.h \
-           colorbutton.h
-SOURCES += abakusclock.cpp \
-           abakusconfiguredia.cpp \
-           abakusmainwindow.cpp \
-           animatedmove.cpp \
-           ballposition.cpp \
-           colorbutton.cpp \
-           main.cpp
+HEADERS += src/version.h \
+           src/abakusclock.h \
+           src/abakusconfiguredia.h \
+           src/abakusmainwindow.h \
+           src/animatedmove.h \
+           src/ballposition.h \
+           src/colorbutton.h
+SOURCES += src/abakusclock.cpp \
+           src/abakusconfiguredia.cpp \
+           src/abakusmainwindow.cpp \
+           src/animatedmove.cpp \
+           src/ballposition.cpp \
+           src/colorbutton.cpp \
+           src/main.cpp

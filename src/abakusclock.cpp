@@ -105,11 +105,9 @@ void AbakusClock::resizeEvent(QResizeEvent* e)
 void AbakusClock::paintEvent(QPaintEvent*)
 {
     // paint
-    QPixmap image(width(), height());
-    QPainter imagePainter(&image);
-    imagePainter.initFrom(this);
+    //QPixmap image(width(), height());
+    QPainter imagePainter(this);
     imagePainter.setRenderHint(QPainter::Antialiasing, TRUE);
-    imagePainter.eraseRect(rect());
     
     QPen   borderpen(m_cClockAppearance.m_cBorderColor);
     borderpen.setWidth(m_cClockAppearance.m_nBorderWidth);
@@ -193,11 +191,12 @@ void AbakusClock::paintEvent(QPaintEvent*)
     imagePainter.end();
     
     // paint image to widget
+    /*
     {
         QPainter widgetPainter(this);
         QRectF rect(0, 0, width(), height());
         widgetPainter.drawPixmap(rect, image, rect);
-    }
+    }*/
     
     // print debug output
     /// currently disabled
