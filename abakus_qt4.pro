@@ -4,9 +4,10 @@
 
 TEMPLATE = app
 DESTDIR = bin/
-TARGET = 
+TARGET = abakus_qt4
 DEPENDPATH += .
 INCLUDEPATH += .
+QT += widgets
 
 # Input
 HEADERS += src/version.h \

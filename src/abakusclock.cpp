@@ -781,7 +781,7 @@ void ClockAppearance::writeTo(FILE* buf)
     while(1) \
     { \
         readElements = fgets(line, 80, file); \
-        if(readElements <= 0) \
+        if(readElements == 0) \
         { \
             return; \
         } \
